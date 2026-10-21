@@ -52,15 +52,16 @@ function stage() {
 
 function listZipEntries() {
 	if ( process.platform === 'win32' ) {
+		const psZipFile = ZIP_FILE.replace( /'/g, "''" );
+		const command = [
+			'Add-Type -AssemblyName System.IO.Compression.FileSystem;',
+			`$z = [System.IO.Compression.ZipFile]::OpenRead('${ psZipFile }');`,
+			'$z.Entries.FullName;',
+			'$z.Dispose()',
+		].join( ' ' );
 		const output = execFileSync(
 			'powershell.exe',
-			[
-				'-NoProfile',
-				'-Command',
-				"Add-Type -AssemblyName System.IO.Compression.FileSystem; " +
-				"$z = [System.IO.Compression.ZipFile]::OpenRead('${ ZIP_FILE }'); " +
-				"$z.Entries.FullName; $z.Dispose()",
-			],
+			[ '-NoProfile', '-Command', command ],
 			{ encoding: 'utf8' }
 		);
 		return output.split( /\r?\n/ ).filter( Boolean );
