@@ -1,0 +1,12 @@
+# Force LF for shell scripts so bash does not choke on Windows checkouts.
+*.sh text eol=lf
+
+# Normalize line endings for source files.
+*.php text
+*.css text
+*.js text
+*.json text
+*.txt text
+
+# Binary files.
+*.zip binary

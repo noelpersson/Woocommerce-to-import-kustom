@@ -6,6 +6,6 @@
   "license": "GPL-2.0-or-later",
   "private": true,
   "scripts": {
-    "plugin-zip": "bash bin/build-zip.sh"
+    "plugin-zip": "node bin/build-zip.js"
   }
 }
