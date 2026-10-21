@@ -51,6 +51,8 @@ function stage() {
 }
 
 function listZipEntries() {
+	const normalize = ( entry ) => entry.replace( /\\/g, '/' );
+
 	if ( process.platform === 'win32' ) {
 		const psZipFile = ZIP_FILE.replace( /'/g, "''" );
 		const command = [
@@ -64,10 +66,10 @@ function listZipEntries() {
 			[ '-NoProfile', '-Command', command ],
 			{ encoding: 'utf8' }
 		);
-		return output.split( /\r?\n/ ).filter( Boolean );
+		return output.split( /\r?\n/ ).filter( Boolean ).map( normalize );
 	}
 	const output = execFileSync( 'unzip', [ '-Z1', ZIP_FILE ], { encoding: 'utf8' } );
-	return output.split( /\r?\n/ ).filter( Boolean );
+	return output.split( /\r?\n/ ).filter( Boolean ).map( normalize );
 }
 
 function verifyZip() {
