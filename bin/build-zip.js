@@ -50,6 +50,49 @@ function stage() {
 	}
 }
 
+function listZipEntries() {
+	if ( process.platform === 'win32' ) {
+		const output = execFileSync(
+			'powershell.exe',
+			[
+				'-NoProfile',
+				'-Command',
+				"Add-Type -AssemblyName System.IO.Compression.FileSystem; " +
+				"$z = [System.IO.Compression.ZipFile]::OpenRead('${ ZIP_FILE }'); " +
+				"$z.Entries.FullName; $z.Dispose()",
+			],
+			{ encoding: 'utf8' }
+		);
+		return output.split( /\r?\n/ ).filter( Boolean );
+	}
+	const output = execFileSync( 'unzip', [ '-Z1', ZIP_FILE ], { encoding: 'utf8' } );
+	return output.split( /\r?\n/ ).filter( Boolean );
+}
+
+function verifyZip() {
+	const entries = listZipEntries();
+	const required = [ `${ SLUG }/woo-kustom-export.php` ];
+
+	for ( const entry of required ) {
+		if ( ! entries.includes( entry ) ) {
+			console.error( `Fel: '${ entry }' saknas i zip-filen. Zip-struktur:`, entries );
+			process.exit( 1 );
+		}
+	}
+
+	for ( const entry of entries ) {
+		if ( entry.startsWith( `${ SLUG }/${ SLUG }/` ) ) {
+			console.error( `Fel: Dubbel mappnivå upptäckt i zip-filen: '${ entry }'.`, entries );
+			process.exit( 1 );
+		}
+	}
+
+	console.log( 'Zip-innehåll:' );
+	for ( const entry of entries ) {
+		console.log( `  ${ entry }` );
+	}
+}
+
 function createZip() {
 	if ( process.platform === 'win32' ) {
 		execFileSync(
@@ -57,7 +100,7 @@ function createZip() {
 			[
 				'-NoProfile',
 				'-Command',
-				`Compress-Archive -Path '${ SLUG }' -DestinationPath '${ ZIP_FILE }'`,
+				`Compress-Archive -Path '${ SLUG }' -DestinationPath '${ ZIP_FILE }' -Force`,
 			],
 			{ cwd: STAGE_DIR, stdio: 'inherit' }
 		);
@@ -75,6 +118,7 @@ function main() {
 	clean();
 	stage();
 	createZip();
+	verifyZip();
 	fs.rmSync( STAGE_DIR, { recursive: true, force: true } );
 	console.log( `Klar: ${ ZIP_FILE }` );
 }
