@@ -233,7 +233,7 @@ class WOO_Kustom_Export {
 					printf(
 						// translators: 1: Linthor Webbyrå, 2: URL.
 						esc_html__( 'WooCommerce Kustom Product Export är utvecklat av %1$s.', 'woo-kustom-export' ),
-						'<a href="https://linthorwebbyra.se" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Linthor Webbyrå', 'woo-kustom-export' ) . '</a>'
+						'<a href="https://linthor.com" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Linthor Webbyrå', 'woo-kustom-export' ) . '</a>'
 					);
 					?>
 				</p>

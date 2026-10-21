@@ -8,7 +8,7 @@ Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Utvecklat av [Linthor Webbyrå](https://linthorwebbyra.se).
+Utvecklat av [Linthor Webbyrå](https://linthor.com).
 
 Exportera WooCommerce-produkter till en CSV-fil redo för bulkimport i Kustom POS.
 
@@ -57,7 +57,7 @@ VARNING: När CSV-filen importeras till Kustom ersätts befintliga produkter i s
 == Frequently Asked Questions ==
 
 = Vem ligger bakom pluginet? =
-Pluginet är utvecklat av Linthor Webbyrå (https://linthorwebbyra.se).
+Pluginet är utvecklat av Linthor Webbyrå (https://linthor.com).
 
 = Vilka kolumner finns i filen? =
 Som standard endast de fyra obligatoriska: product_name, price_including_vat, vat_rate, currency, plus dynamiska attributkolumner för varianter. Valfria kolumner (sku, category, ean, image_url, stock_status) aktiveras först när formatet verifierats mot Kustoms officiella exempel-CSV-filer, eftersom Kustom tolkar extra kolumner som variantattribut.
