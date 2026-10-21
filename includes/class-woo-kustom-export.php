@@ -226,6 +226,18 @@ class WOO_Kustom_Export {
 					<?php esc_html_e( 'Valfria kolumner (sku, category, ean, image_url, stock_status) aktiveras först när formatet verifierats mot Kustoms officiella exempel-CSV-filer, eftersom Kustom tolkar extra kolumner som variantattribut.', 'woo-kustom-export' ); ?>
 				</p>
 			</section>
+
+			<footer class="woo-kustom-footer">
+				<p class="woo-kustom-footer__text">
+					<?php
+					printf(
+						// translators: 1: Linthor Webbyrå, 2: URL.
+						esc_html__( 'WooCommerce Kustom Product Export är utvecklat av %1$s.', 'woo-kustom-export' ),
+						'<a href="https://linthorwebbyra.se" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Linthor Webbyrå', 'woo-kustom-export' ) . '</a>'
+					);
+					?>
+				</p>
+			</footer>
 		</div>
 		<?php
 	}

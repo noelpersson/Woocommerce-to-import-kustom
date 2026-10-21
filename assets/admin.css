@@ -179,3 +179,24 @@
 	padding: 0;
 	color: #1d2327;
 }
+
+.woo-kustom-footer {
+	margin-top: 24px;
+	text-align: center;
+}
+
+.woo-kustom-footer__text {
+	font-size: 12px;
+	color: #787c82;
+	margin: 0;
+}
+
+.woo-kustom-footer__text a {
+	color: #787c82;
+	text-decoration: none;
+}
+
+.woo-kustom-footer__text a:hover {
+	color: #2271b1;
+	text-decoration: underline;
+}

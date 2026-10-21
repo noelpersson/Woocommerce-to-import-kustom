@@ -1,10 +1,11 @@
 <?php
 /**
  * Plugin Name: WooCommerce Kustom Product Export
- * Plugin URI:  https://github.com/noelpersson/Woocommerce-to-import-kustom
+ * Plugin URI:  https://linthorwebbyra.se
  * Description: Exporterar alla WooCommerce-produkter (enkla och variabla) till en CSV-fil i Kustom POS produktimportformat.
  * Version:     1.0.0
- * Author:      Noel Persson
+ * Author:      Linthor Webbyrå
+ * Author URI:  https://linthorwebbyra.se
  * License:     GPL-2.0-or-later
  * Text Domain: woo-kustom-export
  * Requires at least: 5.8
