@@ -159,6 +159,22 @@
 	color: #1e1e1e;
 }
 
+.woo-kustom-field {
+	padding: 14px 0;
+	border-bottom: 1px solid #f0f0f1;
+}
+
+.woo-kustom-field select {
+	margin-top: 8px;
+	min-width: 240px;
+}
+
+.woo-kustom-field .description {
+	margin-top: 8px;
+	font-size: 12px;
+	color: #646970;
+}
+
 .woo-kustom-columns {
 	display: flex;
 	flex-wrap: wrap;

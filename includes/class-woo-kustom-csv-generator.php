@@ -48,6 +48,7 @@ class WOO_Kustom_CSV_Generator {
 			'include_private'     => 0,
 			'include_outofstock'  => 0,
 			'optional_columns'   => array(),
+			'custom_attribute'   => '',
 		);
 
 		$this->settings = wp_parse_args( (array) $settings, $defaults );
@@ -55,6 +56,22 @@ class WOO_Kustom_CSV_Generator {
 		foreach ( array_keys( $this->optional_columns ) as $key ) {
 			$this->optional_columns[ $key ] = ! empty( $this->settings['optional_columns'][ $key ] );
 		}
+
+		$this->settings['custom_attribute'] = $this->sanitize_custom_attribute( $this->settings['custom_attribute'] );
+	}
+
+	/**
+	 * Sanera valt eget attribut: endast kända attributrubriker tillåts.
+	 *
+	 * @param string $label Vald attributrubrik.
+	 * @return string
+	 */
+	protected function sanitize_custom_attribute( $label ) {
+		$label = strtolower( trim( (string) wp_specialchars_decode( $label, ENT_QUOTES ) ) );
+		if ( '' === $label ) {
+			return '';
+		}
+		return in_array( $label, $this->get_available_attributes(), true ) ? $label : '';
 	}
 
 	/**
@@ -127,7 +144,36 @@ class WOO_Kustom_CSV_Generator {
 			}
 		}
 
-		return array_merge( $columns, array_values( $this->collect_variation_attributes() ) );
+
+		$attributes = $this->collect_variation_attributes();
+		if ( ! empty( $this->settings['custom_attribute'] ) && ! in_array( $this->settings['custom_attribute'], $attributes, true ) ) {
+			$attributes[] = $this->settings['custom_attribute'];
+		}
+
+		return array_merge( $columns, array_values( $attributes ) );
+	}
+
+	/**
+	 * Samla alla attributrubriker som finns i katalogen (globala och produktspecifika),
+	 * sorterade alfabetiskt, för dropdown-valet i admin.
+	 *
+	 * @return string[]
+	 */
+	public function get_available_attributes() {
+		$attributes = array();
+
+		foreach ( $this->get_products_iter() as $product ) {
+			foreach ( $product->get_attributes() as $taxonomy => $data ) {
+				$label = $this->attribute_label( $taxonomy, $product );
+				if ( '' !== $label && ! in_array( $label, $attributes, true ) ) {
+						$attributes[] = $label;
+					}
+				}
+			}
+
+		sort( $attributes, SORT_STRING | SORT_FLAG_CASE );
+
+		return $attributes;
 	}
 
 	/**
@@ -241,6 +287,7 @@ class WOO_Kustom_CSV_Generator {
 				$this->stream_variable_rows( $out, $product, $currency, $template );
 			} elseif ( $this->include_product( $product ) ) {
 				$row = array_merge( $template, $this->build_base_row( $product, $product, $currency ) );
+				$row = array_merge( $row, $this->build_custom_attribute_cell( $product, $product ) );
 				$this->write_row( $out, $row );
 			}
 		}
@@ -262,6 +309,7 @@ class WOO_Kustom_CSV_Generator {
 			}
 
 			$row = array_merge( $template, $this->build_base_row( $variation, $product, $currency ) );
+			$row = array_merge( $row, $this->build_custom_attribute_cell( $variation, $product ) );
 
 			foreach ( $variation->get_attributes() as $taxonomy => $value ) {
 				$label = $this->attribute_label( $taxonomy, $product );
@@ -273,6 +321,63 @@ class WOO_Kustom_CSV_Generator {
 
 			$this->write_row( $out, $row );
 		}
+	}
+
+	/**
+	 * Bygg cellvärdet för det valda egna attributet, som alltid ligger som sista kolumn.
+	 *
+	 * För variationer används variationens värde; om variationen saknar värde
+	 * faller vi tillbaka på föräldraproduktens attributvärde.
+	 *
+	 * @param WC_Product $product Produkten/variationen.
+	 * @param WC_Product $parent  Föräldraprodukten.
+	 * @return array
+	 */
+	protected function build_custom_attribute_cell( $product, $parent ) {
+		$selected = (string) $this->settings['custom_attribute'];
+		if ( '' === $selected ) {
+			return array();
+		}
+
+		$value = $this->get_attribute_value_by_label( $product, $selected, $parent );
+		if ( '' === $value && $parent && $parent->get_id() !== $product->get_id() ) {
+			$value = $this->get_attribute_value_by_label( $parent, $selected, $parent );
+		}
+
+		return array( $selected => $value );
+	}
+
+	/**
+	 * Hämta en produkts värde för attributet med given rubrik.
+	 *
+	 * Hanterar både variationer (värde är slug-strängar) och enkla/variabla
+	 * produkter (värde är WC_Product_Attribute-objekt).
+	 *
+	 * @param WC_Product $product Produkten/variationen.
+	 * @param string     $label   Efterfrågad attributrubrik.
+	 * @param WC_Product $parent  Föräldraprodukten (för attribute_label).
+	 * @return string
+	 */
+	protected function get_attribute_value_by_label( $product, $label, $parent ) {
+		foreach ( $product->get_attributes() as $taxonomy => $value ) {
+			if ( $label !== $this->attribute_label( $taxonomy, $parent ) ) {
+				continue;
+			}
+
+			if ( $value instanceof WC_Product_Attribute ) {
+				$options = $value->get_options();
+				if ( empty( $options ) ) {
+					return '';
+				}
+				return $this->attribute_value( $taxonomy, (string) reset( $options ) );
+			}
+
+			if ( '' !== (string) $value ) {
+				return $this->attribute_value( $taxonomy, $value );
+			}
+		}
+
+		return '';
 	}
 
 	/**

@@ -69,6 +69,7 @@ class WOO_Kustom_Export {
 			'include_private'     => 0,
 			'include_outofstock'  => 0,
 			'optional_columns'   => array(),
+			'custom_attribute'   => '',
 		);
 
 		return wp_parse_args( (array) get_option( self::OPTION_KEY, array() ), $defaults );
@@ -114,10 +115,11 @@ class WOO_Kustom_Export {
 			wp_die( esc_html__( 'Du har inte behörighet att använda denna sida.', 'woo-kustom-export' ) );
 		}
 
-		$settings  = self::get_settings();
-		$generator = new WOO_Kustom_CSV_Generator( $settings );
-		$stats     = $generator->get_stats();
-		$columns   = $generator->collect_columns();
+		$settings   = self::get_settings();
+		$generator  = new WOO_Kustom_CSV_Generator( $settings );
+		$stats      = $generator->get_stats();
+		$columns    = $generator->collect_columns();
+		$attributes = $generator->get_available_attributes();
 
 		$download_url = wp_nonce_url(
 			add_query_arg(
@@ -207,6 +209,23 @@ class WOO_Kustom_Export {
 							<span class="woo-kustom-toggle__label"><?php esc_html_e( 'Inkludera produkter ur lager', 'woo-kustom-export' ); ?></span>
 						</label>
 
+						<div class="woo-kustom-field">
+							<label for="woo_kustom_export_custom_attribute" class="woo-kustom-toggle__label">
+								<?php esc_html_e( 'Egen attributkolumn ( läggs som sista kolumn )', 'woo-kustom-export' ); ?>
+							</label>
+							<select id="woo_kustom_export_custom_attribute" name="woo_kustom_export[custom_attribute]">
+								<option value=""><?php esc_html_e( 'Ingen', 'woo-kustom-export' ); ?></option>
+								<?php foreach ( $attributes as $attribute ) : ?>
+									<option value="<?php echo esc_attr( $attribute ); ?>" <?php selected( $settings['custom_attribute'], $attribute ); ?>>
+										<?php echo esc_html( $attribute ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description">
+								<?php esc_html_e( 'Välj ett produktattribut som ska exporteras som en extra kolumn i CSV-filen. Attributlistan hämtas automatiskt från butikens produkter. Kolumnen läggs alltid sist och sparas som variantattribut i Kustom.', 'woo-kustom-export' ); ?>
+							</p>
+						</div>
+
 						<button type="submit" class="button"><?php esc_html_e( 'Spara filter', 'woo-kustom-export' ); ?></button>
 					</form>
 				</section>
@@ -268,11 +287,21 @@ class WOO_Kustom_Export {
 
 		$raw = isset( $_POST['woo_kustom_export'] ) ? (array) wp_unslash( $_POST['woo_kustom_export'] ) : array();
 
+		$generator        = new WOO_Kustom_CSV_Generator( array() );
+		$custom_attribute = '';
+		if ( ! empty( $raw['custom_attribute'] ) ) {
+			$candidate = strtolower( sanitize_text_field( (string) $raw['custom_attribute'] ) );
+			if ( in_array( $candidate, $generator->get_available_attributes(), true ) ) {
+				$custom_attribute = $candidate;
+			}
+		}
+
 		$settings = array(
 			'include_drafts'     => empty( $raw['include_drafts'] ) ? 0 : 1,
 			'include_private'     => empty( $raw['include_private'] ) ? 0 : 1,
 			'include_outofstock'  => empty( $raw['include_outofstock'] ) ? 0 : 1,
 			'optional_columns'   => isset( $raw['optional_columns'] ) ? array_map( 'sanitize_key', (array) $raw['optional_columns'] ) : array(),
+			'custom_attribute'   => $custom_attribute,
 		);
 
 		update_option( self::OPTION_KEY, $settings, false );
