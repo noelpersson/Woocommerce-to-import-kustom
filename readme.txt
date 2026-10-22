@@ -22,6 +22,7 @@ Funktioner:
 * Fyra obligatoriska kolumner: product_name, price_including_vat, vat_rate, currency.
 * Attributkolumner (exempelvis size, color) läggs till automatiskt utifrån de attribut som faktiskt används av varianterna.
 * Egen attributkolumn: välj ett attribut i en dropdown; det exporteras som en extra sista kolumn och sparas som variantattribut i Kustom (exempelvis condition med värdena new eller vintage, användbart i rapporter).
+* Varning i admingränssnittet om enkla produkter har flera värden på det valda attributet (endast det första värdet kan exporteras per rad).
 * Priser exporteras alltid inklusive moms, med punkt som decimaltecken och utan tusentalsavgränsare.
 * Momssats hämtas från produktens tax class, med butikens standardmomssats som fallback.
 * Filnamn: kustom-products-YYYY-MM-DD-HHmm.csv, UTF-8, komma som avgränsare, LF som radslut.

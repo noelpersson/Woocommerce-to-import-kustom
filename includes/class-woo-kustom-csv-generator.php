@@ -121,6 +121,50 @@ class WOO_Kustom_CSV_Generator {
 	}
 
 	/**
+	 * Hitta enkla produkter med flera värden på det valda egna attributet.
+	 *
+	 * CSV-formatet har en cell per rad, så endast det första värdet kan
+	 * exporteras för sådana produkter. Returnerar produkter som påverkas.
+	 *
+	 * @return array<int,array{name:string,count:int}> Produkter med fler än ett värde.
+	 */
+	public function get_multi_value_simple_products() {
+		$selected = (string) $this->settings['custom_attribute'];
+		if ( '' === $selected ) {
+			return array();
+		}
+
+		$affected = array();
+
+		foreach ( $this->get_products_iter() as $product ) {
+			if ( $product->is_type( 'variable' ) ) {
+				continue;
+			}
+
+			foreach ( $product->get_attributes() as $taxonomy => $value ) {
+				if ( $selected !== $this->attribute_label( $taxonomy, $product ) ) {
+					continue;
+				}
+
+				if ( ! $value instanceof WC_Product_Attribute ) {
+						continue;
+					}
+
+				$options = $value->get_options();
+				if ( count( $options ) > 1 ) {
+						$affected[] = array(
+							'name'  => $product->get_name(),
+							'count' => count( $options ),
+						);
+					}
+					break;
+				}
+			}
+
+		return $affected;
+	}
+
+	/**
 	 * Generera CSV-strömmen och skicka den till webbläsaren som nedladdning.
 	 */
 	public function stream_csv() {

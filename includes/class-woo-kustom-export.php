@@ -120,6 +120,7 @@ class WOO_Kustom_Export {
 		$stats      = $generator->get_stats();
 		$columns    = $generator->collect_columns();
 		$attributes = $generator->get_available_attributes();
+		$multi_value = $generator->get_multi_value_simple_products();
 
 		$download_url = wp_nonce_url(
 			add_query_arg(
@@ -220,11 +221,47 @@ class WOO_Kustom_Export {
 										<?php echo esc_html( $attribute ); ?>
 									</option>
 								<?php endforeach; ?>
-							</select>
+								</select>
 							<p class="description">
 								<?php esc_html_e( 'Välj ett produktattribut som ska exporteras som en extra kolumn i CSV-filen. Attributlistan hämtas automatiskt från butikens produkter. Kolumnen läggs alltid sist och sparas som variantattribut i Kustom.', 'woo-kustom-export' ); ?>
 							</p>
 						</div>
+
+						<?php if ( ! empty( $multi_value ) ) : ?>
+							<div class="woo-kustom-notice woo-kustom-notice--warning">
+								<p><strong><?php esc_html_e( 'Obs!', 'woo-kustom-export' ); ?></strong>
+								<?php
+								echo esc_html(
+									sprintf(
+										/* translators: 1: number of products, 2: attribute name. */
+										__( '%1$d enkla produkter har flera värden på attributet %2$s. Endast det första värdet exporteras per produkt eftersom CSV-formatet har en cell per rad.', 'woo-kustom-export' ),
+										count( $multi_value ),
+										$settings['custom_attribute']
+									)
+								);
+								?>
+								</p>
+								<ul class="woo-kustom-multi-value-list">
+									<?php foreach ( array_slice( $multi_value, 0, 10 ) as $item ) : ?>
+										<li>
+											<?php
+											echo esc_html(
+													sprintf(
+														/* translators: 1: product name, 2: number of attribute values. */
+														__( '%1$s (%2$d värden)', 'woo-kustom-export' ),
+														$item['name'],
+														$item['count']
+														)
+													);
+												?>
+											</li>
+										<?php endforeach; ?>
+									<?php if ( count( $multi_value ) > 10 ) : ?>
+										<li><?php echo esc_html( sprintf( /* translators: %d: number of additional products. */ __( '... och %d fler', 'woo-kustom-export' ), count( $multi_value ) - 10 ) ); ?></li>
+									<?php endif; ?>
+								</ul>
+							</div>
+						<?php endif; ?>
 
 						<button type="submit" class="button"><?php esc_html_e( 'Spara filter', 'woo-kustom-export' ); ?></button>
 					</form>
