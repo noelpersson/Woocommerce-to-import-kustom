@@ -1,136 +1,228 @@
 /**
- * Adminstil för WooCommerce Kustom Product Export.
- * Följer WordPress-adminens egna designriktlinjer med kontrast och fokusstate
- * enligt WCAG 2.1 AA.
+ * WooCommerce Kustom Product Export – adminstil.
+ * Modern, minimal profil med en tydlig accentfärg.
+ * Kontrastförhållanden och fokuslägen följer WCAG 2.1 AA.
  */
 
-.woo-kustom-export-wrap {
+.woo-kustom-wrap {
 	max-width: 1080px;
 }
 
-.woo-kustom-intro {
-	max-width: 72ch;
-	margin: 8px 0 20px;
-	color: #50575e;
+/* ---------- Hero ---------- */
+
+.woo-kustom-hero {
+	background: #1b2430;
+	border-radius: 8px;
+	margin: 20px 0 24px;
+	color: #f0f6fc;
+}
+
+.woo-kustom-hero__inner {
+	padding: 32px;
+}
+
+.woo-kustom-hero__title {
+	margin: 0 0 8px;
+	padding: 0;
+	font-size: 22px;
+	font-weight: 600;
+	line-height: 1.3;
+	color: #ffffff;
+}
+
+.woo-kustom-hero__intro {
+	margin: 0 0 24px;
+	max-width: 56ch;
 	font-size: 14px;
 	line-height: 1.6;
+	color: #cdd8e2;
 }
 
-.woo-kustom-notice {
-	margin: 0 0 20px;
-	max-width: 72ch;
-}
-
-.woo-kustom-grid {
+.woo-kustom-metrics {
 	display: grid;
-	grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+	grid-template-columns: repeat(3, minmax(0, 1fr));
 	gap: 24px;
-	margin-bottom: 24px;
+	margin: 0 0 24px;
+	padding: 0;
+}
+
+.woo-kustom-metric {
+	margin: 0;
+	padding-left: 14px;
+	border-left: 2px solid #4b5b6b;
+}
+
+.woo-kustom-metric__label {
+	font-size: 12px;
+	letter-spacing: 0.02em;
+	color: #a9b7c4;
+}
+
+.woo-kustom-metric__value {
+	margin: 2px 0 0;
+	font-size: 24px;
+	font-weight: 600;
+	line-height: 1.2;
+	color: #ffffff;
+}
+
+.woo-kustom-hero__status {
+	margin: 0 0 16px;
+	padding: 10px 14px;
+	border-radius: 4px;
+	background: rgba(240, 246, 252, 0.08);
+	font-size: 13px;
+	line-height: 1.6;
+	color: #cdd8e2;
+}
+
+.woo-kustom-hero__action {
+	margin: 0;
+}
+
+/* ---------- Knappar ---------- */
+
+.woo-kustom-btn {
+	display: inline-block;
+	padding: 9px 20px;
+	border: 0;
+	border-radius: 4px;
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.4;
+	cursor: pointer;
+	text-decoration: none;
+	transition: background-color 0.15s ease-in-out;
+}
+
+.woo-kustom-btn--primary {
+	background: #2c7be5;
+	color: #ffffff;
+}
+
+.woo-kustom-btn--primary:hover,
+.woo-kustom-btn--primary:focus {
+	background: #1e68cf;
+	color: #ffffff;
+}
+
+.woo-kustom-btn--secondary {
+	background: #f0f3f6;
+	color: #1d2327;
+	border: 1px solid #c3cbd4;
+}
+
+.woo-kustom-btn--secondary:hover,
+.woo-kustom-btn--secondary:focus {
+	background: #e4eaf0;
+	color: #1d2327;
+}
+
+.woo-kustom-btn:focus {
+	outline: 2px solid #78d0ff;
+	outline-offset: 2px;
+}
+
+.woo-kustom-btn.is-disabled {
+	background: #3a4653;
+	color: #a9b7c4;
+	cursor: not-allowed;
+}
+
+/* ---------- Viktigt-notis ---------- */
+
+.woo-kustom-alert {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0 0 24px;
+	padding: 14px 16px;
+	border-left: 3px solid #b26a00;
+	border-radius: 4px;
+	background: #fdf8ed;
+}
+
+.woo-kustom-alert__title {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 600;
+	color: #7a4b00;
+}
+
+.woo-kustom-alert__text {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.6;
+	color: #50575e;
+}
+
+/* ---------- Paneler ---------- */
+
+.woo-kustom-panels {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 24px;
+	margin-bottom: 8px;
 	align-items: start;
 }
 
-@media screen and (max-width: 960px) {
-	.woo-kustom-grid {
-		grid-template-columns: 1fr;
-	}
+.woo-kustom-panel {
+	padding: 24px;
+	border: 1px solid #dfe3e8;
+	border-radius: 8px;
+	background: #ffffff;
 }
 
-.woo-kustom-section {
-	margin-bottom: 24px;
-}
-
-.woo-kustom-section h2 {
+.woo-kustom-panel__title {
 	margin: 0 0 8px;
 	padding: 0;
-	font-size: 16px;
+	font-size: 15px;
 	font-weight: 600;
 	color: #1d2327;
 	line-height: 1.4;
 }
 
-.woo-kustom-section__text {
+.woo-kustom-panel__text {
 	margin: 0 0 16px;
-	color: #50575e;
 	font-size: 13px;
 	line-height: 1.6;
-	max-width: 60ch;
-}
-
-.woo-kustom-stats {
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 12px;
-	margin: 0 0 16px;
-	padding: 0;
-	list-style: none;
-}
-
-@media screen and (max-width: 600px) {
-	.woo-kustom-stats {
-		grid-template-columns: 1fr;
-	}
-}
-
-.woo-kustom-stat {
-	margin: 0;
-	padding: 12px 16px;
-	background: #f6f7f7;
-	border: 1px solid #dcdcde;
-	border-radius: 4px;
-}
-
-.woo-kustom-stat__value {
-	display: block;
-	font-size: 20px;
-	font-weight: 600;
-	color: #1d2327;
-	line-height: 1.3;
-}
-
-.woo-kustom-stat__label {
-	display: block;
-	margin-top: 2px;
-	font-size: 12px;
 	color: #50575e;
+	max-width: 56ch;
 }
 
-.woo-kustom-form .button {
-	margin-top: 16px;
-}
+/* ---------- Filter ---------- */
 
 .woo-kustom-fieldset {
 	border: 0;
-	margin: 0;
+	margin: 0 0 20px;
 	padding: 0;
 }
 
-.woo-kustom-toggle {
-	display: flex;
-	align-items: baseline;
-	column-gap: 8px;
-	padding: 8px 0;
-	border-bottom: 1px solid #f0f0f1;
+.woo-kustom-option {
+	padding: 10px 0;
+	border-bottom: 1px solid #edeff2;
 }
 
-.woo-kustom-toggle:last-of-type {
+.woo-kustom-option:last-of-type {
 	border-bottom: 0;
 }
 
-.woo-kustom-toggle input[type="checkbox"] {
-	flex: none;
-	margin-top: 4px;
+.woo-kustom-option input[type="checkbox"] {
+	margin: 0 8px 0 0;
 }
 
-.woo-kustom-toggle label {
+.woo-kustom-option input[type="checkbox"]:focus {
+	outline: 2px solid #2c7be5;
+	outline-offset: 1px;
+}
+
+.woo-kustom-option__label {
 	font-size: 13px;
 	color: #1d2327;
 	line-height: 1.5;
 }
 
-.woo-kustom-toggle input[type="checkbox"]:focus {
-	outline: 2px solid #2271b1;
-	outline-offset: 1px;
-}
+/* ---------- Kolumnlista ---------- */
 
 .woo-kustom-columns {
 	display: flex;
@@ -141,17 +233,17 @@
 	list-style: none;
 }
 
-.woo-kustom-column-chip {
+.woo-kustom-column {
 	margin: 0;
 	padding: 3px 10px;
-	background: #f6f7f7;
-	border: 1px solid #dcdcde;
-	border-radius: 3px;
+	border: 1px solid #dfe3e8;
+	border-radius: 4px;
+	background: #f7f8fa;
 	font-size: 12px;
 	line-height: 1.6;
 }
 
-.woo-kustom-column-chip code {
+.woo-kustom-column code {
 	background: none;
 	border: 0;
 	padding: 0;
@@ -160,23 +252,61 @@
 	font-size: 12px;
 }
 
-.woo-kustom-divider {
-	border: 0;
-	border-top: 1px solid #dcdcde;
-	margin: 24px 0 16px;
-}
+/* ---------- Sidfot ---------- */
 
 .woo-kustom-footer {
-	margin: 0;
-	color: #646970;
+	margin: 16px 0 0;
 	font-size: 12px;
+	color: #646970;
 }
 
 .woo-kustom-footer a {
-	color: #2271b1;
+	color: #1e68cf;
 }
 
 .woo-kustom-footer a:focus {
-	outline: 2px solid #2271b1;
+	outline: 2px solid #2c7be5;
 	outline-offset: 2px;
+}
+
+/* ---------- Responsivitet och tillgänglighet ---------- */
+
+@media screen and (max-width: 960px) {
+	.woo-kustom-panels {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media screen and (max-width: 600px) {
+	.woo-kustom-hero__inner {
+		padding: 20px;
+	}
+
+	.woo-kustom-metrics {
+		grid-template-columns: 1fr;
+		gap: 12px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.woo-kustom-btn {
+		transition: none;
+	}
+}
+
+@media (prefers-contrast: more) {
+	.woo-kustom-hero {
+		background: #10161e;
+	}
+
+	.woo-kustom-hero__intro,
+	.woo-kustom-hero__status,
+	.woo-kustom-metric__label {
+		color: #ffffff;
+	}
+
+	.woo-kustom-panel,
+	.woo-kustom-column {
+		border-color: #787c82;
+	}
 }
