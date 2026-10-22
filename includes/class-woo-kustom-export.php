@@ -287,7 +287,12 @@ class WOO_Kustom_Export {
 
 		$raw = isset( $_POST['woo_kustom_export'] ) ? (array) wp_unslash( $_POST['woo_kustom_export'] ) : array();
 
-		$generator        = new WOO_Kustom_CSV_Generator( array() );
+		$raw_settings     = array(
+			'include_drafts'    => empty( $raw['include_drafts'] ) ? 0 : 1,
+			'include_private'   => empty( $raw['include_private'] ) ? 0 : 1,
+			'include_outofstock' => empty( $raw['include_outofstock'] ) ? 0 : 1,
+		);
+		$generator        = new WOO_Kustom_CSV_Generator( $raw_settings );
 		$custom_attribute = '';
 		if ( ! empty( $raw['custom_attribute'] ) ) {
 			$candidate = strtolower( sanitize_text_field( (string) $raw['custom_attribute'] ) );

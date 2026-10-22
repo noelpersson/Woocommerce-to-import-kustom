@@ -38,6 +38,20 @@ class WOO_Kustom_CSV_Generator {
 	);
 
 	/**
+	 * Intern cache för attributrubriker, undviker upprepade katalogskanningar.
+	 *
+	 * @var array<string,string[]>
+	 */
+	protected $attribute_cache = array();
+
+	/**
+	 * Intern cache för variationsattributrubriker.
+	 *
+	 * @var array<string,string[]>
+	 */
+	protected $variation_attribute_cache = array();
+
+	/**
 	 * Konstruktor.
 	 *
 	 * @param array $settings Exportinställningar.
@@ -160,6 +174,11 @@ class WOO_Kustom_CSV_Generator {
 	 * @return string[]
 	 */
 	public function get_available_attributes() {
+		$statuses_key = md5( wp_json_encode( $this->get_status_scope() ) );
+		if ( isset( $this->attribute_cache[ $statuses_key ] ) ) {
+			return $this->attribute_cache[ $statuses_key ];
+		}
+
 		$attributes = array();
 
 		foreach ( $this->get_products_iter() as $product ) {
@@ -173,7 +192,27 @@ class WOO_Kustom_CSV_Generator {
 
 		sort( $attributes, SORT_STRING | SORT_FLAG_CASE );
 
+		$this->attribute_cache[ $statuses_key ] = $attributes;
+
 		return $attributes;
+	}
+
+	/**
+	 * Produktstatusar som omfattas av aktuella inställningar (cache-nyckel).
+	 *
+	 * @return string[]
+	 */
+	protected function get_status_scope() {
+		$statuses = array( 'publish' );
+
+		if ( ! empty( $this->settings['include_drafts'] ) ) {
+			$statuses[] = 'draft';
+		}
+		if ( ! empty( $this->settings['include_private'] ) ) {
+			$statuses[] = 'private';
+		}
+
+		return $statuses;
 	}
 
 	/**
@@ -182,6 +221,11 @@ class WOO_Kustom_CSV_Generator {
 	 * @return string[]
 	 */
 	protected function collect_variation_attributes() {
+		$statuses_key = md5( wp_json_encode( $this->get_status_scope() ) );
+		if ( isset( $this->variation_attribute_cache[ $statuses_key ] ) ) {
+			return $this->variation_attribute_cache[ $statuses_key ];
+		}
+
 		$attributes = array();
 
 		foreach ( $this->get_products_iter() as $product ) {
@@ -195,6 +239,8 @@ class WOO_Kustom_CSV_Generator {
 				}
 			}
 		}
+
+		$this->variation_attribute_cache[ $statuses_key ] = $attributes;
 
 		return $attributes;
 	}
@@ -227,14 +273,7 @@ class WOO_Kustom_CSV_Generator {
 	 * @return iterable<WC_Product>
 	 */
 	protected function get_products_iter() {
-		$statuses = array( 'publish' );
-
-		if ( ! empty( $this->settings['include_drafts'] ) ) {
-			$statuses[] = 'draft';
-		}
-		if ( ! empty( $this->settings['include_private'] ) ) {
-			$statuses[] = 'private';
-		}
+		$statuses = $this->get_status_scope();
 
 		// Större kataloger: hämta i sidor om 100 för att begränsa minnesanvändningen.
 		$page = 1;
@@ -365,11 +404,7 @@ class WOO_Kustom_CSV_Generator {
 			}
 
 			if ( $value instanceof WC_Product_Attribute ) {
-				$options = $value->get_options();
-				if ( empty( $options ) ) {
-					return '';
-				}
-				return $this->attribute_value( $taxonomy, (string) reset( $options ) );
+				return $this->attribute_option_value( $value );
 			}
 
 			if ( '' !== (string) $value ) {
@@ -378,6 +413,31 @@ class WOO_Kustom_CSV_Generator {
 		}
 
 		return '';
+	}
+
+	/**
+	 * Hämta det första attributvärdet ur ett WC_Product_Attribute-objekt.
+	 *
+	 * För taxonomiattribut innehåller get_options() term-ID:n som måste slås
+	 * upp mot termens namn; för lokala attribut är alternativen fritext.
+	 *
+	 * @param WC_Product_Attribute $attribute Attributobjektet.
+	 * @return string
+	 */
+	protected function attribute_option_value( $attribute ) {
+		$options = $attribute->get_options();
+		if ( empty( $options ) ) {
+			return '';
+		}
+
+		$option = reset( $options );
+
+		if ( $attribute->is_taxonomy() ) {
+			$term = get_term_by( 'id', (int) $option, $attribute->get_name() );
+			return ( $term && ! is_wp_error( $term ) ) ? $term->name : '';
+		}
+
+		return (string) $option;
 	}
 
 	/**
