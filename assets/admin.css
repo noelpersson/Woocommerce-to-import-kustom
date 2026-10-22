@@ -1,202 +1,312 @@
 /**
- * Modern adminstil för WooCommerce Kustom Product Export.
+ * WooCommerce Kustom Product Export – adminstil.
+ * Modern, minimal profil med en tydlig accentfärg.
+ * Kontrastförhållanden och fokuslägen följer WCAG 2.1 AA.
  */
 
-.woo-kustom-export-wrap {
+.woo-kustom-wrap {
 	max-width: 1080px;
-	margin-right: auto;
-	font-size: 14px;
 }
 
-.woo-kustom-header {
-	background: linear-gradient(135deg, #1e1e2f 0%, #3c1361 100%);
-	border-radius: 12px;
+/* ---------- Hero ---------- */
+
+.woo-kustom-hero {
+	background: #1b2430;
+	border-radius: 8px;
+	margin: 20px 0 24px;
+	color: #f0f6fc;
+}
+
+.woo-kustom-hero__inner {
 	padding: 32px;
-	margin-bottom: 24px;
-	color: #fff;
 }
 
-.woo-kustom-header__title {
-	margin: 0 0 6px;
+.woo-kustom-hero__title {
+	margin: 0 0 8px;
+	padding: 0;
+	font-size: 22px;
+	font-weight: 600;
+	line-height: 1.3;
+	color: #ffffff;
+}
+
+.woo-kustom-hero__intro {
+	margin: 0 0 24px;
+	max-width: 56ch;
+	font-size: 14px;
+	line-height: 1.6;
+	color: #cdd8e2;
+}
+
+.woo-kustom-metrics {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 24px;
+	margin: 0 0 24px;
+	padding: 0;
+}
+
+.woo-kustom-metric {
+	margin: 0;
+	padding-left: 14px;
+	border-left: 2px solid #4b5b6b;
+}
+
+.woo-kustom-metric__label {
+	font-size: 12px;
+	letter-spacing: 0.02em;
+	color: #a9b7c4;
+}
+
+.woo-kustom-metric__value {
+	margin: 2px 0 0;
 	font-size: 24px;
 	font-weight: 600;
-	color: #fff;
-	padding: 0;
-	line-height: 1.3;
+	line-height: 1.2;
+	color: #ffffff;
 }
 
-.woo-kustom-header__icon {
-	margin-right: 8px;
-}
-
-.woo-kustom-header__subtitle {
-	margin: 0;
-	opacity: 0.85;
-	font-size: 14px;
-}
-
-.woo-kustom-grid {
-	display: grid;
-	grid-template-columns: 1fr 1fr;
-	gap: 24px;
-	margin-bottom: 24px;
-}
-
-@media screen and (max-width: 960px) {
-	.woo-kustom-grid {
-		grid-template-columns: 1fr;
-	}
-}
-
-.woo-kustom-card {
-	background: #fff;
-	border: 1px solid #e2e4e7;
-	border-radius: 12px;
-	padding: 24px;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.woo-kustom-card__title {
-	margin: 0 0 8px;
-	font-size: 16px;
-	font-weight: 600;
-}
-
-.woo-kustom-card__text {
-	color: #50575e;
-	margin-bottom: 16px;
-}
-
-.woo-kustom-card__text--muted {
-	font-size: 12px;
-	opacity: 0.75;
-	margin-bottom: 0;
-}
-
-.woo-kustom-stats {
-	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	gap: 12px;
-	margin-bottom: 20px;
-}
-
-.woo-kustom-stat {
-	background: #f6f7f7;
-	border-radius: 10px;
-	padding: 16px;
-	text-align: center;
-}
-
-.woo-kustom-stat__value {
-	display: block;
-	font-size: 22px;
-	font-weight: 700;
-	color: #1e1e1e;
-}
-
-.woo-kustom-stat__label {
-	display: block;
-	margin-top: 4px;
-	font-size: 12px;
-	color: #646970;
-}
-
-.woo-kustom-button {
-	display: inline-block;
-	margin-bottom: 16px;
-	padding: 6px 24px !important;
-	font-size: 14px !important;
-	border-radius: 8px !important;
-}
-
-.woo-kustom-button--disabled {
-	opacity: 0.5;
-	pointer-events: none;
-}
-
-.woo-kustom-notice {
-	border-radius: 8px;
-	padding: 12px 16px;
+.woo-kustom-hero__status {
 	margin: 0 0 16px;
+	padding: 10px 14px;
+	border-radius: 4px;
+	background: rgba(240, 246, 252, 0.08);
+	font-size: 13px;
+	line-height: 1.6;
+	color: #cdd8e2;
 }
 
-.woo-kustom-notice p {
+.woo-kustom-hero__action {
 	margin: 0;
 }
 
-.woo-kustom-notice--warning {
-	background: #fcf9e8;
-	border-left: 4px solid #dba617;
-}
+/* ---------- Knappar ---------- */
 
-.woo-kustom-notice--info {
-	background: #e6f2fa;
-	border-left: 4px solid #72aee6;
-}
-
-.woo-kustom-form .button {
-	margin-top: 16px;
-}
-
-.woo-kustom-toggle {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	padding: 10px 0;
-	border-bottom: 1px solid #f0f0f1;
+.woo-kustom-btn {
+	display: inline-block;
+	padding: 9px 20px;
+	border: 0;
+	border-radius: 4px;
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.4;
 	cursor: pointer;
+	text-decoration: none;
+	transition: background-color 0.15s ease-in-out;
 }
 
-.woo-kustom-toggle:last-of-type {
-	border-bottom: none;
+.woo-kustom-btn--primary {
+	background: #2c7be5;
+	color: #ffffff;
 }
 
-.woo-kustom-toggle input[type="checkbox"] {
-	flex: none;
+.woo-kustom-btn--primary:hover,
+.woo-kustom-btn--primary:focus {
+	background: #1e68cf;
+	color: #ffffff;
 }
 
-.woo-kustom-toggle__label {
-	color: #1e1e1e;
+.woo-kustom-btn--secondary {
+	background: #f0f3f6;
+	color: #1d2327;
+	border: 1px solid #c3cbd4;
 }
+
+.woo-kustom-btn--secondary:hover,
+.woo-kustom-btn--secondary:focus {
+	background: #e4eaf0;
+	color: #1d2327;
+}
+
+.woo-kustom-btn:focus {
+	outline: 2px solid #78d0ff;
+	outline-offset: 2px;
+}
+
+.woo-kustom-btn.is-disabled {
+	background: #3a4653;
+	color: #a9b7c4;
+	cursor: not-allowed;
+}
+
+/* ---------- Viktigt-notis ---------- */
+
+.woo-kustom-alert {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0 0 24px;
+	padding: 14px 16px;
+	border-left: 3px solid #b26a00;
+	border-radius: 4px;
+	background: #fdf8ed;
+}
+
+.woo-kustom-alert__title {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 600;
+	color: #7a4b00;
+}
+
+.woo-kustom-alert__text {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.6;
+	color: #50575e;
+}
+
+/* ---------- Paneler ---------- */
+
+.woo-kustom-panels {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	gap: 24px;
+	margin-bottom: 8px;
+	align-items: start;
+}
+
+.woo-kustom-panel {
+	padding: 24px;
+	border: 1px solid #dfe3e8;
+	border-radius: 8px;
+	background: #ffffff;
+}
+
+.woo-kustom-panel__title {
+	margin: 0 0 8px;
+	padding: 0;
+	font-size: 15px;
+	font-weight: 600;
+	color: #1d2327;
+	line-height: 1.4;
+}
+
+.woo-kustom-panel__text {
+	margin: 0 0 16px;
+	font-size: 13px;
+	line-height: 1.6;
+	color: #50575e;
+	max-width: 56ch;
+}
+
+/* ---------- Filter ---------- */
+
+.woo-kustom-fieldset {
+	border: 0;
+	margin: 0 0 20px;
+	padding: 0;
+}
+
+.woo-kustom-option {
+	padding: 10px 0;
+	border-bottom: 1px solid #edeff2;
+}
+
+.woo-kustom-option:last-of-type {
+	border-bottom: 0;
+}
+
+.woo-kustom-option input[type="checkbox"] {
+	margin: 0 8px 0 0;
+}
+
+.woo-kustom-option input[type="checkbox"]:focus {
+	outline: 2px solid #2c7be5;
+	outline-offset: 1px;
+}
+
+.woo-kustom-option__label {
+	font-size: 13px;
+	color: #1d2327;
+	line-height: 1.5;
+}
+
+/* ---------- Kolumnlista ---------- */
 
 .woo-kustom-columns {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
-	margin-bottom: 16px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
 
-.woo-kustom-column-chip {
-	background: #f0f6fc;
-	border: 1px solid #c3d4e4;
-	border-radius: 999px;
-	padding: 3px 12px;
+.woo-kustom-column {
+	margin: 0;
+	padding: 3px 10px;
+	border: 1px solid #dfe3e8;
+	border-radius: 4px;
+	background: #f7f8fa;
+	font-size: 12px;
+	line-height: 1.6;
+}
+
+.woo-kustom-column code {
+	background: none;
+	border: 0;
+	padding: 0;
+	margin: 0;
+	color: #1d2327;
 	font-size: 12px;
 }
 
-.woo-kustom-column-chip code {
-	background: none;
-	padding: 0;
-	color: #1d2327;
-}
+/* ---------- Sidfot ---------- */
 
 .woo-kustom-footer {
-	margin-top: 24px;
-	text-align: center;
-}
-
-.woo-kustom-footer__text {
+	margin: 16px 0 0;
 	font-size: 12px;
-	color: #787c82;
-	margin: 0;
+	color: #646970;
 }
 
-.woo-kustom-footer__text a {
-	color: #787c82;
-	text-decoration: none;
+.woo-kustom-footer a {
+	color: #1e68cf;
 }
 
-.woo-kustom-footer__text a:hover {
-	color: #2271b1;
-	text-decoration: underline;
+.woo-kustom-footer a:focus {
+	outline: 2px solid #2c7be5;
+	outline-offset: 2px;
+}
+
+/* ---------- Responsivitet och tillgänglighet ---------- */
+
+@media screen and (max-width: 960px) {
+	.woo-kustom-panels {
+		grid-template-columns: 1fr;
+	}
+}
+
+@media screen and (max-width: 600px) {
+	.woo-kustom-hero__inner {
+		padding: 20px;
+	}
+
+	.woo-kustom-metrics {
+		grid-template-columns: 1fr;
+		gap: 12px;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.woo-kustom-btn {
+		transition: none;
+	}
+}
+
+@media (prefers-contrast: more) {
+	.woo-kustom-hero {
+		background: #10161e;
+	}
+
+	.woo-kustom-hero__intro,
+	.woo-kustom-hero__status,
+	.woo-kustom-metric__label {
+		color: #ffffff;
+	}
+
+	.woo-kustom-panel,
+	.woo-kustom-column {
+		border-color: #787c82;
+	}
 }
