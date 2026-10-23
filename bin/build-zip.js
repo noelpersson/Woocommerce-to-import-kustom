@@ -7,6 +7,10 @@
  * beroenden) med snedstreck i sökvägarna, vilket ger identisk utmatning på
  * Windows, macOS och Linux och undviker WordPress "Incompatible Archive"-
  * problem med Compress-Archive.
+ *
+ * Filerna samlas in rekursivt från repot, så nya källfiler följer med
+ * automatiskt. Filer och kataloger i EXCLUDES hoppas över, liksom själva
+ * zip-filen.
  */
 
 'use strict';
@@ -18,18 +22,47 @@ const SLUG = 'woo-kustom-export';
 const ROOT_DIR = path.resolve( __dirname, '..' );
 const ZIP_FILE = path.join( ROOT_DIR, `${ SLUG }.zip` );
 
-const FILES = [
-	'woo-kustom-export.php',
-	'includes/class-woo-kustom-export.php',
-	'includes/class-woo-kustom-csv-generator-base.php',
-	'includes/class-woo-kustom-csv-generator.php',
-	'includes/class-woo-kustom-sello-csv-generator.php',
-	'assets/admin.css',
-	'readme.txt',
+const EXCLUDES = [
+	'.git',
+	'.github',
+	'node_modules',
+	'bin',
+	`${ SLUG }.zip`,
+	'.gitignore',
+	'.gitattributes',
+	'package.json',
+	'package-lock.json',
+	'README.md',
 ];
 
 /**
- * CRC32-tabell och beräkning enligt standardalgoritmen.
+ * Samla alla filer rekursivt, sorterade för deterministisk zip-ordning.
+ *
+ * @param {string} dir Katalog att gå igenom.
+ * @return {string[]} Relativa sökvägar till alla filer.
+ */
+function collectFiles( dir ) {
+	const files = [];
+	const entries = fs.readdirSync( dir, { withFileTypes: true } );
+
+	for ( const entry of entries ) {
+		if ( EXCLUDES.includes( entry.name ) ) {
+			continue;
+		}
+
+		const full = path.join( dir, entry.name );
+		if ( entry.isDirectory() ) {
+			files.push( ...collectFiles( full ) );
+		} else if ( entry.isFile() ) {
+			files.push( path.relative( ROOT_DIR, full ) );
+		}
+	}
+
+	return files.sort();
+}
+
+/**
+ * DOS-datum/tid från nuvarande klockslag.
  */
 const CRC_TABLE = ( () => {
 	const table = new Uint32Array( 256 );
@@ -133,15 +166,15 @@ function buildZip( entries ) {
 }
 
 function main() {
-	for ( const file of FILES ) {
-		if ( ! fs.existsSync( path.join( ROOT_DIR, file ) ) ) {
-			console.error( `Fel: Saknad fil: ${ file }` );
-			process.exit( 1 );
-		}
+	const files = collectFiles( ROOT_DIR );
+
+	if ( 0 === files.length ) {
+		console.error( 'Fel: Inga filer hittades att packa.' );
+		process.exit( 1 );
 	}
 
-	const entries = FILES.map( ( file ) => ( {
-		name: `${ SLUG }/${ file }`,
+	const entries = files.map( ( file ) => ( {
+		name: `${ SLUG }/${ file.split( path.sep ).join( '/' ) }`,
 		data: fs.readFileSync( path.join( ROOT_DIR, file ) ),
 	} ) );
 
