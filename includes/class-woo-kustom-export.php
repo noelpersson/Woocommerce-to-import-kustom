@@ -181,7 +181,7 @@ class WOO_Kustom_Export {
 			<div class="woo-kustom-header">
 				<div class="woo-kustom-header__content">
 					<h1 class="woo-kustom-header__title">
-						<span class="woo-kustom-header__icon" aria-hidden="true">&#8681;</span>
+						<span class="dashicons dashicons-download" aria-hidden="true"></span>
 						<?php esc_html_e( 'Exportera produkter (Kustom & Sello)', 'woo-kustom-export' ); ?>
 					</h1>
 					<p class="woo-kustom-header__subtitle">
