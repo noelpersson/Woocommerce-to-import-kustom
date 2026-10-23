@@ -150,7 +150,7 @@ class WOO_Kustom_Export {
 	}
 
 	/**
-	 * Rendera adminsida med modernt, användarvänligt gränssnitt.
+	 * Rendera adminsida i WordPress-adminens egna design-språk, med WCAG-anpassad struktur.
 	 */
 	public function render_admin_page() {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
@@ -177,64 +177,65 @@ class WOO_Kustom_Export {
 
 		$total_rows = (int) $stats['products'] + (int) $stats['variations'];
 		?>
-		<div class="wrap woo-kustom-export-wrap">
-			<div class="woo-kustom-header">
-				<div class="woo-kustom-header__content">
-					<h1 class="woo-kustom-header__title">
-						<span class="dashicons dashicons-download" aria-hidden="true"></span>
-						<?php esc_html_e( 'Exportera produkter (Kustom & Sello)', 'woo-kustom-export' ); ?>
-					</h1>
-					<p class="woo-kustom-header__subtitle">
+		<div class="wrap woo-kustom-wrap">
+			<?php if ( isset( $_GET['updated'] ) ) : ?>
+				<div class="notice notice-success is-dismissible"><p><?php esc_html_e( 'Exportfiltren har sparats.', 'woo-kustom-export' ); ?></p></div>
+			<?php endif; ?>
+
+			<header class="woo-kustom-hero">
+				<div class="woo-kustom-hero__inner">
+					<h1 class="woo-kustom-hero__title"><?php esc_html_e( 'Exportera produkter (Kustom & Sello)', 'woo-kustom-export' ); ?></h1>
+					<p class="woo-kustom-hero__intro">
 						<?php esc_html_e( 'Skapa CSV-filer redo för bulkimport av produkter i Kustom POS och Sello.', 'woo-kustom-export' ); ?>
 					</p>
-				</div>
-			</div>
 
-			<div class="woo-kustom-grid">
-				<section class="woo-kustom-card woo-kustom-card--main">
-					<h2 class="woo-kustom-card__title"><?php esc_html_e( 'Export', 'woo-kustom-export' ); ?></h2>
-					<p class="woo-kustom-card__text">
-						<?php esc_html_e( 'Filerna innehåller alla produkter (enkla produkter och varianter) i respektive plattforms importformat. Filnamnen blir kustom-products-YYYY-MM-DD-HHmm.csv respektive sello-products-YYYY-MM-DD-HHmm.csv.', 'woo-kustom-export' ); ?>
-					</p>
-
-					<div class="woo-kustom-stats">
-						<div class="woo-kustom-stat">
-							<span class="woo-kustom-stat__value"><?php echo esc_html( number_format_i18n( (int) $stats['products'] ) ); ?></span>
-							<span class="woo-kustom-stat__label"><?php esc_html_e( 'Enkla produkter', 'woo-kustom-export' ); ?></span>
+					<dl class="woo-kustom-metrics">
+						<div class="woo-kustom-metric">
+							<dt class="woo-kustom-metric__label"><?php esc_html_e( 'Enkla produkter', 'woo-kustom-export' ); ?></dt>
+							<dd class="woo-kustom-metric__value"><?php echo esc_html( number_format_i18n( (int) $stats['products'] ) ); ?></dd>
 						</div>
-						<div class="woo-kustom-stat">
-							<span class="woo-kustom-stat__value"><?php echo esc_html( number_format_i18n( (int) $stats['variations'] ) ); ?></span>
-							<span class="woo-kustom-stat__label"><?php esc_html_e( 'Varianter', 'woo-kustom-export' ); ?></span>
+						<div class="woo-kustom-metric">
+							<dt class="woo-kustom-metric__label"><?php esc_html_e( 'Varianter', 'woo-kustom-export' ); ?></dt>
+							<dd class="woo-kustom-metric__value"><?php echo esc_html( number_format_i18n( (int) $stats['variations'] ) ); ?></dd>
 						</div>
-						<div class="woo-kustom-stat">
-							<span class="woo-kustom-stat__value"><?php echo esc_html( number_format_i18n( $total_rows ) ); ?></span>
-							<span class="woo-kustom-stat__label"><?php esc_html_e( 'CSV-rader per fil', 'woo-kustom-export' ); ?></span>
+						<div class="woo-kustom-metric">
+							<dt class="woo-kustom-metric__label"><?php esc_html_e( 'Rader i filen', 'woo-kustom-export' ); ?></dt>
+							<dd class="woo-kustom-metric__value"><?php echo esc_html( number_format_i18n( $total_rows ) ); ?></dd>
 						</div>
-					</div>
+					</dl>
 
 					<?php if ( 0 === $total_rows ) : ?>
-						<div class="woo-kustom-notice woo-kustom-notice--info">
-							<p><?php esc_html_e( 'Inga produkter matchar de aktuella inställningarna. Justera filtren nedan eller lägg till produkter i butiken.', 'woo-kustom-export' ); ?></p>
-						</div>
+						<p class="woo-kustom-hero__status woo-kustom-hero__status--empty">
+							<?php esc_html_e( 'Inga produkter matchar de aktuella filtren. Justera filtren nedan eller lägg till produkter i butiken.', 'woo-kustom-export' ); ?>
+						</p>
+						<p class="woo-kustom-hero__action">
+							<span class="woo-kustom-btn woo-kustom-btn--primary is-disabled" aria-disabled="true">
+								<?php esc_html_e( 'Inga produkter att exportera', 'woo-kustom-export' ); ?>
+							</span>
+						</p>
 					<?php else : ?>
-						<div class="woo-kustom-buttons">
+						<p class="woo-kustom-hero__action">
 							<?php foreach ( self::get_platforms() as $key => $platform ) : ?>
-								<a href="<?php echo esc_url( $download_urls[ $key ] ); ?>" class="button button-primary woo-kustom-button">
+								<a href="<?php echo esc_url( $download_urls[ $key ] ); ?>" class="woo-kustom-btn woo-kustom-btn--primary">
 									<?php echo esc_html( sprintf( __( 'Exportera produkter till %s CSV', 'woo-kustom-export' ), $platform['label'] ) ); ?>
 								</a>
 							<?php endforeach; ?>
-						</div>
+						</p>
 					<?php endif; ?>
+				</div>
+			</header>
 
-					<div class="woo-kustom-notice woo-kustom-notice--warning">
-						<p><strong><?php esc_html_e( 'Obs!', 'woo-kustom-export' ); ?></strong>
-						<?php esc_html_e( 'När CSV-filen importeras till Kustom ersätts befintliga produkter i samma Kustom-butik. Vid import till Sello matchas produkter mot SKU. Dubbelkolla filen innan du importerar.', 'woo-kustom-export' ); ?></p>
-					</div>
-				</section>
+			<div class="woo-kustom-alert" role="note">
+				<p class="woo-kustom-alert__title"><?php esc_html_e( 'Viktigt', 'woo-kustom-export' ); ?></p>
+				<p class="woo-kustom-alert__text">
+					<?php esc_html_e( 'När CSV-filen importeras till Kustom ersätts befintliga produkter i samma Kustom-butik. Vid import till Sello matchas produkter mot SKU. Granska filen innan du importerar den.', 'woo-kustom-export' ); ?>
+				</p>
+			</div>
 
-				<section class="woo-kustom-card">
-					<h2 class="woo-kustom-card__title"><?php esc_html_e( 'Exportfilter', 'woo-kustom-export' ); ?></h2>
-					<p class="woo-kustom-card__text">
+			<div class="woo-kustom-panels">
+				<section class="woo-kustom-panel" aria-labelledby="woo-kustom-filter-heading">
+					<h2 id="woo-kustom-filter-heading" class="woo-kustom-panel__title"><?php esc_html_e( 'Exportfilter', 'woo-kustom-export' ); ?></h2>
+					<p class="woo-kustom-panel__text">
 						<?php esc_html_e( 'Standard är att endast publicerade produkter i lager exporteras. Filtren gäller båda plattformarna.', 'woo-kustom-export' ); ?>
 					</p>
 
@@ -242,62 +243,63 @@ class WOO_Kustom_Export {
 						<input type="hidden" name="action" value="woo_kustom_export_save_settings">
 						<?php wp_nonce_field( 'woo_kustom_export_save_settings' ); ?>
 
-						<label class="woo-kustom-toggle">
-							<input type="checkbox" name="woo_kustom_export[include_drafts]" value="1" <?php checked( ! empty( $settings['include_drafts'] ) ); ?>>
-							<span class="woo-kustom-toggle__label"><?php esc_html_e( 'Inkludera utkast', 'woo-kustom-export' ); ?></span>
-						</label>
+						<fieldset class="woo-kustom-fieldset">
+							<legend class="screen-reader-text"><?php esc_html_e( 'Välj vilka produkter som ska inkluderas i exporten.', 'woo-kustom-export' ); ?></legend>
 
-						<label class="woo-kustom-toggle">
-							<input type="checkbox" name="woo_kustom_export[include_private]" value="1" <?php checked( ! empty( $settings['include_private'] ) ); ?>>
-							<span class="woo-kustom-toggle__label"><?php esc_html_e( 'Inkludera privata produkter', 'woo-kustom-export' ); ?></span>
-						</label>
+							<div class="woo-kustom-option">
+								<input type="checkbox" id="woo-kustom-include-drafts" name="woo_kustom_export[include_drafts]" value="1" <?php checked( ! empty( $settings['include_drafts'] ) ); ?>>
+								<label for="woo-kustom-include-drafts" class="woo-kustom-option__label"><?php esc_html_e( 'Inkludera utkast', 'woo-kustom-export' ); ?></label>
+							</div>
 
-						<label class="woo-kustom-toggle">
-							<input type="checkbox" name="woo_kustom_export[include_outofstock]" value="1" <?php checked( ! empty( $settings['include_outofstock'] ) ); ?>>
-							<span class="woo-kustom-toggle__label"><?php esc_html_e( 'Inkludera produkter ur lager', 'woo-kustom-export' ); ?></span>
-						</label>
+							<div class="woo-kustom-option">
+								<input type="checkbox" id="woo-kustom-include-private" name="woo_kustom_export[include_private]" value="1" <?php checked( ! empty( $settings['include_private'] ) ); ?>>
+								<label for="woo-kustom-include-private" class="woo-kustom-option__label"><?php esc_html_e( 'Inkludera privata produkter', 'woo-kustom-export' ); ?></label>
+							</div>
 
-						<button type="submit" class="button"><?php esc_html_e( 'Spara filter', 'woo-kustom-export' ); ?></button>
+							<div class="woo-kustom-option">
+								<input type="checkbox" id="woo-kustom-include-outofstock" name="woo_kustom_export[include_outofstock]" value="1" <?php checked( ! empty( $settings['include_outofstock'] ) ); ?>>
+								<label for="woo-kustom-include-outofstock" class="woo-kustom-option__label"><?php esc_html_e( 'Inkludera produkter ur lager', 'woo-kustom-export' ); ?></label>
+							</div>
+						</fieldset>
+
+						<button type="submit" class="woo-kustom-btn woo-kustom-btn--secondary"><?php esc_html_e( 'Spara filter', 'woo-kustom-export' ); ?></button>
 					</form>
 				</section>
+
+				<?php foreach ( self::get_platforms() as $key => $platform ) : ?>
+					<?php $platform_generator = self::create_generator( $key ); ?>
+					<section class="woo-kustom-panel" aria-labelledby="woo-kustom-columns-heading-<?php echo esc_attr( $key ); ?>">
+						<h2 id="woo-kustom-columns-heading-<?php echo esc_attr( $key ); ?>" class="woo-kustom-panel__title"><?php echo esc_html( sprintf( __( 'Kolumner i exporten (%s)', 'woo-kustom-export' ), $platform['label'] ) ); ?></h2>
+						<ul class="woo-kustom-columns">
+							<?php foreach ( $platform_generator->collect_columns() as $column ) : ?>
+								<li class="woo-kustom-column"><code><?php echo esc_html( $column ); ?></code></li>
+							<?php endforeach; ?>
+						</ul>
+						<p class="woo-kustom-panel__text">
+							<?php
+							printf(
+								// translators: 1: Plattformens namn.
+								esc_html__( 'Kolumnnamnen följer %s officiella importdokumentation.', 'woo-kustom-export' ),
+								esc_html( $platform['label'] )
+							);
+							?>
+						</p>
+					</section>
+				<?php endforeach; ?>
 			</div>
 
-			<?php foreach ( self::get_platforms() as $key => $platform ) : ?>
-				<?php $platform_generator = self::create_generator( $key ); ?>
-				<section class="woo-kustom-card">
-					<h2 class="woo-kustom-card__title"><?php echo esc_html( sprintf( __( 'Kolumner i exporten (%s)', 'woo-kustom-export' ), $platform['label'] ) ); ?></h2>
-					<div class="woo-kustom-columns">
-						<?php foreach ( $platform_generator->collect_columns() as $column ) : ?>
-							<span class="woo-kustom-column-chip"><code><?php echo esc_html( $column ); ?></code></span>
-						<?php endforeach; ?>
-					</div>
-					<p class="woo-kustom-card__text woo-kustom-card__text--muted">
-						<?php
-						printf(
-							// translators: 1: Plattformens namn.
-							esc_html__( 'Kolumnnamnen följer %s officiella importdokumentation.', 'woo-kustom-export' ),
-							esc_html( $platform['label'] )
-						);
-						?>
-					</p>
-				</section>
-			<?php endforeach; ?>
-
-			<footer class="woo-kustom-footer">
-				<p class="woo-kustom-footer__text">
-					<?php
-					printf(
-						// translators: 1: Linthor Webbyrå, 2: URL.
-						esc_html__( 'WooCommerce Kustom Product Export är utvecklat av %1$s.', 'woo-kustom-export' ),
-						'<a href="https://linthor.com" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Linthor Webbyrå', 'woo-kustom-export' ) . '</a>'
-					);
-					?>
-				</p>
-			</footer>
+			<p class="woo-kustom-footer">
+				<?php
+				printf(
+					// translators: 1: URL till Linthor Webbyrå.
+					esc_html__( 'WooCommerce Kustom Product Export är utvecklad av %1$s.', 'woo-kustom-export' ),
+					'<a href="https://linthor.com" target="_blank" rel="noopener noreferrer">' . esc_html__( 'Linthor Webbyrå', 'woo-kustom-export' ) . '</a>'
+				);
+				?>
+			</p>
 		</div>
 		<?php
 	}
-
 	/**
 	 * Hantera CSV-exporten: nonce- och capability-kontroll, sedan strömning.
 	 */
