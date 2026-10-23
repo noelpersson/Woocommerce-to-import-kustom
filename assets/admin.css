@@ -191,16 +191,16 @@
 
 .woo-kustom-footer__text {
 	font-size: 12px;
-	color: #787c82;
+	color: #646970;
 	margin: 0;
 }
 
 .woo-kustom-footer__text a {
-	color: #787c82;
-	text-decoration: none;
+	color: #2271b1;
+	text-decoration: underline;
 }
 
 .woo-kustom-footer__text a:hover {
-	color: #2271b1;
+	color: #135e96;
 	text-decoration: underline;
 }
