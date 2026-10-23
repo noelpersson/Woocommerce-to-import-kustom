@@ -21,7 +21,9 @@ const ZIP_FILE = path.join( ROOT_DIR, `${ SLUG }.zip` );
 const FILES = [
 	'woo-kustom-export.php',
 	'includes/class-woo-kustom-export.php',
+	'includes/class-woo-kustom-csv-generator-base.php',
 	'includes/class-woo-kustom-csv-generator.php',
+	'includes/class-woo-kustom-sello-csv-generator.php',
 	'assets/admin.css',
 	'readme.txt',
 ];

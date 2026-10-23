@@ -2,8 +2,8 @@
 /**
  * Plugin Name: WooCommerce Kustom Product Export
  * Plugin URI:  https://linthor.com
- * Description: Exporterar alla WooCommerce-produkter (enkla och variabla) till en CSV-fil i Kustom POS produktimportformat.
- * Version:     1.0.0
+ * Description: Exporterar alla WooCommerce-produkter (enkla och variabla) till CSV-filer för bulkimport i Kustom POS och Sello.
+ * Version:     1.1.0
  * Author:      Linthor Webbyrå
  * Author URI:  https://linthor.com
  * License:     GPL-2.0-or-later
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WOO_KUSTOM_EXPORT_VERSION', '1.0.0' );
+define( 'WOO_KUSTOM_EXPORT_VERSION', '1.1.0' );
 define( 'WOO_KUSTOM_EXPORT_PLUGIN_FILE', __FILE__ );
 define( 'WOO_KUSTOM_EXPORT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WOO_KUSTOM_EXPORT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -35,7 +35,9 @@ function woo_kustom_export_bootstrap() {
 		return;
 	}
 
+	require_once WOO_KUSTOM_EXPORT_PLUGIN_DIR . 'includes/class-woo-kustom-csv-generator-base.php';
 	require_once WOO_KUSTOM_EXPORT_PLUGIN_DIR . 'includes/class-woo-kustom-csv-generator.php';
+	require_once WOO_KUSTOM_EXPORT_PLUGIN_DIR . 'includes/class-woo-kustom-sello-csv-generator.php';
 	require_once WOO_KUSTOM_EXPORT_PLUGIN_DIR . 'includes/class-woo-kustom-export.php';
 
 	WOO_Kustom_Export::instance();
