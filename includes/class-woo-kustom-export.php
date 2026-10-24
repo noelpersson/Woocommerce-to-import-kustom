@@ -112,6 +112,7 @@ class WOO_Kustom_Export {
 			'include_private'     => 0,
 			'include_outofstock'  => 0,
 			'optional_columns'   => array(),
+			'custom_attribute'   => '',
 		);
 
 		return wp_parse_args( (array) get_option( self::OPTION_KEY, array() ), $defaults );
@@ -160,6 +161,8 @@ class WOO_Kustom_Export {
 		$settings  = self::get_settings();
 		$generator = self::create_generator( 'kustom' );
 		$stats     = $generator->get_stats();
+		$attributes = method_exists( $generator, 'get_available_attributes' ) ? $generator->get_available_attributes() : array();
+		$multi_value = method_exists( $generator, 'get_multi_value_simple_products' ) ? $generator->get_multi_value_simple_products() : array();
 
 		$download_urls = array();
 		foreach ( self::get_platforms() as $key => $platform ) {
@@ -262,6 +265,60 @@ class WOO_Kustom_Export {
 							</div>
 						</fieldset>
 
+						<div class="woo-kustom-field">
+							<label for="woo_kustom_export_custom_attribute" class="woo-kustom-option__label">
+								<?php esc_html_e( 'Egen attributkolumn ( läggs som sista kolumn )', 'woo-kustom-export' ); ?>
+							</label>
+							<select id="woo_kustom_export_custom_attribute" name="woo_kustom_export[custom_attribute]">
+								<option value=""><?php esc_html_e( 'Ingen', 'woo-kustom-export' ); ?></option>
+								<?php foreach ( $attributes as $attribute ) : ?>
+									<option value="<?php echo esc_attr( $attribute ); ?>" <?php selected( $settings['custom_attribute'], $attribute ); ?>>
+										<?php echo esc_html( $attribute ); ?>
+									</option>
+								<?php endforeach; ?>
+							</select>
+							<p class="description">
+								<?php esc_html_e( 'Välj ett produktattribut som ska exporteras som en extra kolumn i CSV-filen. Attributlistan hämtas automatiskt från butikens produkter. Kolumnen läggs alltid sist och sparas som variantattribut i Kustom.', 'woo-kustom-export' ); ?>
+							</p>
+						</div>
+
+						<?php if ( ! empty( $multi_value ) ) : ?>
+							<div class="woo-kustom-alert">
+								<p class="woo-kustom-alert__title"><?php esc_html_e( 'Obs!', 'woo-kustom-export' ); ?></p>
+								<p class="woo-kustom-alert__text">
+									<?php
+									echo esc_html(
+										sprintf(
+											/* translators: 1: number of products, 2: attribute name. */
+											__( '%1$d enkla produkter har flera värden på attributet %2$s. Endast det första värdet exporteras per produkt eftersom CSV-formatet har en cell per rad.', 'woo-kustom-export' ),
+											count( $multi_value ),
+											$settings['custom_attribute']
+										)
+									);
+									?>
+								</p>
+								<ul class="woo-kustom-multi-value-list">
+									<?php foreach ( array_slice( $multi_value, 0, 10 ) as $item ) : ?>
+										<li>
+											<?php
+											echo esc_html(
+												sprintf(
+													/* translators: 1: product name, 2: number of attribute values. */
+													__( '%1$s (%2$d värden)', 'woo-kustom-export' ),
+													$item['name'],
+													$item['count']
+												)
+											);
+											?>
+										</li>
+									<?php endforeach; ?>
+									<?php if ( count( $multi_value ) > 10 ) : ?>
+										<li><?php echo esc_html( sprintf( /* translators: %d: number of additional products. */ __( '... och %d fler', 'woo-kustom-export' ), count( $multi_value ) - 10 ) ); ?></li>
+									<?php endif; ?>
+								</ul>
+							</div>
+						<?php endif; ?>
+
 						<button type="submit" class="woo-kustom-btn woo-kustom-btn--secondary"><?php esc_html_e( 'Spara filter', 'woo-kustom-export' ); ?></button>
 					</form>
 				</section>
@@ -328,11 +385,26 @@ class WOO_Kustom_Export {
 
 		$raw = isset( $_POST['woo_kustom_export'] ) ? (array) wp_unslash( $_POST['woo_kustom_export'] ) : array();
 
+		$raw_settings     = array(
+			'include_drafts'    => empty( $raw['include_drafts'] ) ? 0 : 1,
+			'include_private'   => empty( $raw['include_private'] ) ? 0 : 1,
+			'include_outofstock' => empty( $raw['include_outofstock'] ) ? 0 : 1,
+		);
+		$generator        = new WOO_Kustom_CSV_Generator( $raw_settings );
+		$custom_attribute = '';
+		if ( ! empty( $raw['custom_attribute'] ) ) {
+			$candidate = strtolower( sanitize_text_field( (string) $raw['custom_attribute'] ) );
+			if ( in_array( $candidate, $generator->get_available_attributes(), true ) ) {
+				$custom_attribute = $candidate;
+			}
+		}
+
 		$settings = array(
 			'include_drafts'     => empty( $raw['include_drafts'] ) ? 0 : 1,
 			'include_private'     => empty( $raw['include_private'] ) ? 0 : 1,
 			'include_outofstock'  => empty( $raw['include_outofstock'] ) ? 0 : 1,
 			'optional_columns'   => isset( $raw['optional_columns'] ) ? array_map( 'sanitize_key', (array) $raw['optional_columns'] ) : array(),
+			'custom_attribute'   => $custom_attribute,
 		);
 
 		update_option( self::OPTION_KEY, $settings, false );

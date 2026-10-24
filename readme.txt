@@ -21,6 +21,7 @@ Funktioner:
 * Två exportformat: Kustom POS och Sello, en knapp per plattform.
 * Exporterar enkla produkter och variabla produkter (varje variant blir en egen rad).
 * Kustom: fyra obligatoriska kolumner (product_name, price_including_vat, vat_rate, currency) plus dynamiska attributkolumner.
+* Kustom: välj valfri egen attributkolumn i admin; den exporteras som sista kolumn och sparas som variantattribut (exempelvis condition med värdena new eller vintage). En varning visas om enkla produkter har flera värden på valt attribut (endast första värdet exporteras per rad).
 * Sello: kolumner enligt Sellos officiella Excel-importdokumentation (Sku, Standard name, Standard description, Price, VAT rate, Property EAN, Property GTIN, Images, Group sku, Group type, Stock). Variationer grupperas via Group sku och Group type (color, model eller size).
 * Priser exporteras med punkt som decimaltecken och utan tusentalsavgränsare.
 * Momssats hämtas från produktens tax class, med butikens standardmomssats som fallback.
@@ -35,14 +36,16 @@ Funktioner:
 3. Kontrollera att WooCommerce är installerat och aktiverat, annars visas en varning.
 4. Gå till WooCommerce → Kustom-export.
 5. Valfritt: justera filtren för utkast, privata produkter och produkter ur lager.
-6. Klicka på "Exportera produkter till Kustom POS CSV" eller "Exportera produkter till Sello CSV" för att ladda ner filen.
+6. Valfritt: välj ett eget attribut i dropdownen "Egen attributkolumn" för Kustom-exporten.
+7. Klicka på "Exportera produkter till Kustom POS CSV" eller "Exportera produkter till Sello CSV" för att ladda ner filen.
 
 == Användning ==
 
 1. Gå till WooCommerce → Kustom-export.
 2. Sidan visar antal enkla produkter, antal varianter och totalt antal CSV-rader som kommer att exporteras.
-3. Klicka på knappen för den plattform du vill exportera till.
-4. CSV-filen laddas ner direkt till webbläsaren.
+3. Valfritt: välj ett attribut i dropdownen "Egen attributkolumn" för Kustom-exporten. Listan hämtas automatiskt från attribut i produktkatalogen.
+4. Klicka på knappen för den plattform du vill exportera till.
+5. CSV-filen laddas ner direkt till webbläsaren.
 
 Kustom: importera filen via Kustom POS produktimport. VARNING: befintliga produkter i samma Kustom-butik ersätts vid import. Granska filen innan du importerar den.
 

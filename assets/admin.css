@@ -222,8 +222,34 @@
 	line-height: 1.5;
 }
 
-/* ---------- Kolumnlista ---------- */
+.woo-kustom-field {
+	padding: 14px 0;
+	border-bottom: 1px solid #edeff2;
+}
 
+.woo-kustom-field select {
+	margin-top: 8px;
+	min-width: 240px;
+}
+
+.woo-kustom-field .description {
+	margin-top: 8px;
+	font-size: 12px;
+	color: #646970;
+}
+
+.woo-kustom-multi-value-list {
+	margin: 0;
+	padding-left: 18px;
+	font-size: 12px;
+	color: #50575e;
+}
+
+.woo-kustom-multi-value-list li {
+	margin: 2px 0;
+}
+
+/* ---------- Kolumnlista ---------- */
 .woo-kustom-columns {
 	display: flex;
 	flex-wrap: wrap;
