@@ -29,6 +29,14 @@ Funktioner:
 * CSV-injection-skydd: cellvärden som börjar med =, +, - eller @ prefixas med en apostrof.
 * Låg minnesanvändning: produkter hämtas och skrivs i omgångar om 100.
 
+Sello-export:
+
+* Exporterar samma produkter med Sellos kolumnnamn: Sku, Property EAN, Property GTIN, Standard name sv, Standard description sv, Quantity, Tax, Weight, Images, Brand, Group sku och Group type.
+* Varianter med attributen color, size eller model grupperas automatiskt via Group sku och Group type.
+* Vikt konverteras till gram utifrån butikens viktenhet.
+* Momssatsen avrundas till närmsta giltiga Sello-värde (25, 12, 6, 0).
+* OBS: Sello kräver .xlsx. Öppna CSV-filen i Excel och spara den som Excel-arbetsbok före import.
+
 == Installation ==
 
 1. Ladda upp pluginmappen till katalogen /wp-content/plugins/.
@@ -50,6 +58,8 @@ Funktioner:
 Kustom: importera filen via Kustom POS produktimport. VARNING: befintliga produkter i samma Kustom-butik ersätts vid import. Granska filen innan du importerar den.
 
 Sello: logga in, öppna menyn upp till vänster, gå till Import / export, välj Excel i Import-sektionen och välj "Create new products from my file" (nya produkter) eller "Update products with my file" (uppdatera befintliga). Produkter matchas mot kolumnen Sku.
+
+För Sello: Öppna den nedladdade CSV-filen i Excel och spara den som .xlsx. Importera sedan via Sello → Import/export → Excel. För att uppdatera befintliga produkter måste filen innehålla Sku, Id, Property EAN eller Property GTIN. Tomma celler raderar inte värden i Sello – använd Admin(delete) för att rensa ett fält. Grupptypen (color, size, model) kan inte ändras efter att gruppen skapats.
 
 == Skärmdumpar ==
 

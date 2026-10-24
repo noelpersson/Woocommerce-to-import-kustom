@@ -37,7 +37,7 @@ function woo_kustom_export_bootstrap() {
 
 	require_once WOO_KUSTOM_EXPORT_PLUGIN_DIR . 'includes/class-woo-kustom-csv-generator-base.php';
 	require_once WOO_KUSTOM_EXPORT_PLUGIN_DIR . 'includes/class-woo-kustom-csv-generator.php';
-	require_once WOO_KUSTOM_EXPORT_PLUGIN_DIR . 'includes/class-woo-kustom-sello-csv-generator.php';
+	require_once WOO_KUSTOM_EXPORT_PLUGIN_DIR . 'includes/class-woo-sello-csv-generator.php';
 	require_once WOO_KUSTOM_EXPORT_PLUGIN_DIR . 'includes/class-woo-kustom-export.php';
 
 	WOO_Kustom_Export::instance();

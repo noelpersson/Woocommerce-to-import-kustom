@@ -71,7 +71,7 @@ class WOO_Kustom_Export {
 			),
 			'sello'  => array(
 				'label'     => __( 'Sello', 'woo-kustom-export' ),
-				'generator' => 'WOO_Kustom_Sello_CSV_Generator',
+				'generator' => 'WOO_Sello_CSV_Generator',
 			),
 		);
 	}
