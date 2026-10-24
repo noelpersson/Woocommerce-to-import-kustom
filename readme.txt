@@ -4,7 +4,7 @@ Tags: woocommerce, kustom, sello, export, csv, products
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,7 +18,7 @@ WooCommerce Kustom Product Export skapar CSV-filer med alla produkter i din WooC
 
 Funktioner:
 
-* Två exportformat: Kustom POS och Sello, en knapp per plattform.
+* Tre exportformat: Kustom POS CSV, Sello CSV och Sello Excel (.xlsx), en knapp per format.
 * Exporterar enkla produkter och variabla produkter (varje variant blir en egen rad).
 * Kustom: fyra obligatoriska kolumner (product_name, price_including_vat, vat_rate, currency) plus dynamiska attributkolumner.
 * Kustom: välj valfri egen attributkolumn i admin; den exporteras som sista kolumn och sparas som variantattribut (exempelvis condition med värdena new eller vintage). En varning visas om enkla produkter har flera värden på valt attribut (endast första värdet exporteras per rad).
@@ -35,7 +35,8 @@ Sello-export:
 * Varianter med attributen color, size eller model grupperas automatiskt via Group sku och Group type.
 * Vikt konverteras till gram utifrån butikens viktenhet.
 * Momssatsen avrundas till närmsta giltiga Sello-värde (25, 12, 6, 0).
-* OBS: Sello kräver .xlsx. Öppna CSV-filen i Excel och spara den som Excel-arbetsbok före import.
+* Excel-export: klicka på "Exportera produkter till Sello Excel (.xlsx)" för att ladda ner en färdig Excel-arbetsbok (samma kolumner och data som CSV-versionen) som kan importeras till Sello direkt, utan att öppna och spara om filen i Excel. Filen genereras med det licensfria biblioteket XLSXWriter (MIT) som strömmar rad för rad, vilket håller minnesanvändningen låg även för stora kataloger.
+* CSV-alternativet finns kvar för de som föredrar att granska filen som ren text.
 
 == Installation ==
 
@@ -66,6 +67,11 @@ För Sello: Öppna den nedladdade CSV-filen i Excel och spara den som .xlsx. Imp
 (Ännu inte tillgängliga.)
 
 == Changelog ==
+
+= 1.2.0 =
+* Nytt exportformat: Sello Excel (.xlsx). Knappen "Exportera produkter till Sello Excel (.xlsx)" laddar ner en färdig Excel-arbetsbok som kan importeras till Sello direkt.
+* XLSXWriter-biblioteket (MIT, licensfritt, en fil, inga externa beroenden) läggs med i includes/lib/ och strömmar rad för rad för låg minnesanvändning.
+* Generatorerna omfaktorerade med en gemensam raditerator (get_rows_iter) som både CSV- och XLSX-exporten använder.
 
 = 1.1.0 =
 * Ny exportplattform: Sello, med kolumner enligt Sellos officiella Excel-importdokumentation och variantgruppering via Group sku/Group type.
