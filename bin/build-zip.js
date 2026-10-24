@@ -22,6 +22,7 @@ const FILES = [
 	'woo-kustom-export.php',
 	'includes/class-woo-kustom-export.php',
 	'includes/class-woo-kustom-csv-generator.php',
+	'includes/class-woo-sello-csv-generator.php',
 	'assets/admin.css',
 	'readme.txt',
 ];

@@ -56,6 +56,7 @@ class WOO_Kustom_Export {
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_assets' ) );
 		add_action( 'admin_post_woo_kustom_export_download', array( $this, 'handle_export' ) );
 		add_action( 'admin_post_woo_kustom_export_save_settings', array( $this, 'handle_save_settings' ) );
+		add_action( 'admin_post_woo_kustom_sello_download', array( $this, 'handle_sello_export' ) );
 	}
 
 	/**
@@ -119,6 +120,9 @@ class WOO_Kustom_Export {
 		$stats     = $generator->get_stats();
 		$columns   = $generator->collect_columns();
 
+		$sello_generator = new WOO_Sello_CSV_Generator( $settings );
+		$sello_columns   = $sello_generator->collect_columns();
+
 		$download_url = wp_nonce_url(
 			add_query_arg(
 				array(
@@ -127,6 +131,16 @@ class WOO_Kustom_Export {
 				admin_url( 'admin-post.php' )
 			),
 			'woo_kustom_export_download'
+		);
+
+		$sello_download_url = wp_nonce_url(
+			add_query_arg(
+				array(
+					'action' => 'woo_kustom_sello_download',
+				),
+				admin_url( 'admin-post.php' )
+			),
+			'woo_kustom_sello_download'
 		);
 
 		$total_rows = (int) $stats['products'] + (int) $stats['variations'];
@@ -213,6 +227,40 @@ class WOO_Kustom_Export {
 			</div>
 
 			<section class="woo-kustom-card">
+				<h2 class="woo-kustom-card__title"><?php esc_html_e( 'Sello-export (Excel-import)', 'woo-kustom-export' ); ?></h2>
+				<p class="woo-kustom-card__text">
+					<?php esc_html_e( 'Skapar en CSV med Sellos kolumnnamn (Sku, Property EAN, Standard name sv m.fl.) som kan sparas som .xlsx i Excel och importeras via Sello → Import/export → Excel. Varianter med attributen color, size eller model grupperas automatiskt via Group sku och Group type.', 'woo-kustom-export' ); ?>
+				</p>
+				<p class="woo-kustom-card__text">
+					<?php esc_html_e( 'Filen innehåller inga priser eftersom Sello saknar en kolumn för försäljningspris – lägg till priser i Sello efter import.', 'woo-kustom-export' ); ?>
+				</p>
+
+				<?php if ( 0 < $total_rows ) : ?>
+					<a href="<?php echo esc_url( $sello_download_url ); ?>" class="button woo-kustom-button">
+						<?php esc_html_e( 'Exportera produkter till Sello CSV', 'woo-kustom-export' ); ?>
+				</a>
+			<?php else : ?>
+					<button type="button" class="button woo-kustom-button woo-kustom-button--disabled" aria-disabled="true">
+						<?php esc_html_e( 'Exportera produkter till Sello CSV', 'woo-kustom-export' ); ?>
+				</button>
+				<?php endif; ?>
+
+				<div class="woo-kustom-notice woo-kustom-notice--warning">
+					<p><strong><?php esc_html_e( 'Obs!', 'woo-kustom-export' ); ?></strong>
+					<?php esc_html_e( 'Sello kräver .xlsx – öppna filen i Excel och spara som Excel-arbetsbok innan import. Tomma celler raderar inte befintliga värden i Sello; använd Admin(delete) för att rensa ett fält.', 'woo-kustom-export' ); ?></p>
+				</div>
+			</section>
+
+			<section class="woo-kustom-card">
+				<h2 class="woo-kustom-card__title"><?php esc_html_e( 'Kolumner i Sello-exporten', 'woo-kustom-export' ); ?></h2>
+				<div class="woo-kustom-columns">
+					<?php foreach ( $sello_columns as $column ) : ?>
+						<span class="woo-kustom-column-chip"><code><?php echo esc_html( $column ); ?></code></span>
+					<?php endforeach; ?>
+				</div>
+			</section>
+
+			<section class="woo-kustom-card">
 				<h2 class="woo-kustom-card__title"><?php esc_html_e( 'Kolumner i exporten', 'woo-kustom-export' ); ?></h2>
 				<p class="woo-kustom-card__text">
 					<?php esc_html_e( 'Fyra obligatoriska kolumner exporteras som standard. Attributkolumner (exempelvis size och color) läggs till automatiskt för varianter.', 'woo-kustom-export' ); ?>
@@ -243,7 +291,7 @@ class WOO_Kustom_Export {
 	}
 
 	/**
-	 * Hantera CSV-exporten: nonce- och capability-kontroll, sedan strömning.
+	 * Hantera Kustom CSV-exporten: nonce- och capability-kontroll, sedan strömning.
 	 */
 	public function handle_export() {
 		if ( ! current_user_can( self::CAPABILITY ) ) {
@@ -253,6 +301,20 @@ class WOO_Kustom_Export {
 		check_admin_referer( 'woo_kustom_export_download' );
 
 		$generator = new WOO_Kustom_CSV_Generator( self::get_settings() );
+		$generator->stream_csv();
+	}
+
+	/**
+	 * Hantera Sello CSV-exporten: nonce- och capability-kontroll, sedan strömning.
+	 */
+	public function handle_sello_export() {
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			wp_die( esc_html__( 'Du har inte behörighet att exportera produkter.', 'woo-kustom-export' ) );
+		}
+
+		check_admin_referer( 'woo_kustom_sello_download' );
+
+		$generator = new WOO_Sello_CSV_Generator( self::get_settings() );
 		$generator->stream_csv();
 	}
 
