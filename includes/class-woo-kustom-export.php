@@ -73,6 +73,10 @@ class WOO_Kustom_Export {
 				'label'     => __( 'Sello', 'woo-kustom-export' ),
 				'generator' => 'WOO_Sello_CSV_Generator',
 			),
+			'sello-xlsx' => array(
+				'label'     => __( 'Sello Excel', 'woo-kustom-export' ),
+				'generator' => 'WOO_Sello_XLSX_Generator',
+			),
 		);
 	}
 
@@ -219,8 +223,8 @@ class WOO_Kustom_Export {
 					<?php else : ?>
 						<p class="woo-kustom-hero__action">
 							<?php foreach ( self::get_platforms() as $key => $platform ) : ?>
-								<a href="<?php echo esc_url( $download_urls[ $key ] ); ?>" class="woo-kustom-btn woo-kustom-btn--primary">
-									<?php echo esc_html( sprintf( __( 'Exportera produkter till %s CSV', 'woo-kustom-export' ), $platform['label'] ) ); ?>
+								<a href="<?php echo esc_url( $download_urls[ $key ] ); ?>" class="woo-kustom-btn <?php echo 'sello-xlsx' === $key ? 'woo-kustom-btn--primary' : 'woo-kustom-btn--secondary'; ?>">
+									<?php echo esc_html( sprintf( __( 'Exportera produkter till %s', 'woo-kustom-export' ), 'sello-xlsx' === $key ? __( 'Sello Excel (.xlsx)', 'woo-kustom-export' ) : sprintf( __( '%s CSV', 'woo-kustom-export' ), $platform['label'] ) ) ); ?>
 								</a>
 							<?php endforeach; ?>
 						</p>
@@ -370,6 +374,12 @@ class WOO_Kustom_Export {
 		$platform = self::sanitize_platform( isset( $_GET['platform'] ) ? wp_unslash( $_GET['platform'] ) : 'kustom' );
 
 		$generator = self::create_generator( $platform );
+
+		if ( 'sello-xlsx' === $platform ) {
+			$generator->stream_xlsx();
+			return;
+		}
+
 		$generator->stream_csv();
 	}
 

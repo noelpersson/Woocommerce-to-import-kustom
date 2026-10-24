@@ -107,39 +107,43 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 
 		$this->write_row( $out, $this->collect_columns() );
 
-		$this->stream_rows( $out );
+		foreach ( $this->get_rows_iter() as $row ) {
+			$this->write_row( $out, $row );
+		}
 
 		fclose( $out );
 		exit;
 	}
 
 	/**
-	 * Strömma produkt- och variationsrader till filhandtaget.
+	 * Iterera färdiga rader (rubrikraden exkluderad) som associerade arrayer
+	 * med samma nycklar som collect_columns(). Generatorer håller minnesanvändningen
+	 * låg eftersom bara en produktfamilj finns i minnet åt gången.
 	 *
-	 * @param resource $out Filhandtag (php://output).
+	 * @return iterable<array>
 	 */
-	protected function stream_rows( $out ) {
+	public function get_rows_iter() {
 		$columns = $this->collect_columns();
 
 		foreach ( $this->get_products_iter() as $product ) {
 			$template = array_fill_keys( $columns, '' );
 
 			if ( $product->is_type( 'variable' ) ) {
-				$this->stream_variable_rows( $out, $product, $template );
+				yield from $this->get_variable_rows_iter( $product, $template );
 			} elseif ( $this->include_product( $product ) ) {
-				$this->write_row( $out, array_merge( $template, $this->build_row( $product, $product ) ) );
+				yield array_merge( $template, $this->build_row( $product, $product ) );
 			}
 		}
 	}
 
 	/**
-	 * Strömma alla variationsrader för en variabel produkt.
+	 * Iterera variationsrader för en variabel produkt.
 	 *
-	 * @param resource   $out      Filhandtag.
 	 * @param WC_Product $product  Föräldraprodukten.
 	 * @param array      $template Radmall med rubrikens kolumnordning.
+	 * @return iterable<array>
 	 */
-	protected function stream_variable_rows( $out, $product, $template ) {
+	protected function get_variable_rows_iter( $product, $template ) {
 		foreach ( $product->get_children() as $variation_id ) {
 			$variation = wc_get_product( $variation_id );
 			if ( ! $variation || ! $variation->exists() || ! $this->include_product( $variation ) ) {
@@ -156,7 +160,7 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 				$row[ $label ] = $this->attribute_value( $taxonomy, $value );
 			}
 
-			$this->write_row( $out, $row );
+			yield $row;
 		}
 	}
 

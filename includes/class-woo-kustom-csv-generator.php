@@ -239,13 +239,13 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 	}
 
 	/**
-	 * Strömma alla variationsrader för en variabel produkt.
+	 * Iterera variationsrader för en variabel produkt.
 	 *
-	 * @param resource   $out      Filhandtag.
 	 * @param WC_Product $product  Föräldraprodukten.
 	 * @param array      $template Radmall med rubrikens kolumnordning.
+	 * @return iterable<array>
 	 */
-	protected function stream_variable_rows( $out, $product, $template ) {
+	protected function get_variable_rows_iter( $product, $template ) {
 		foreach ( $product->get_children() as $variation_id ) {
 			$variation = wc_get_product( $variation_id );
 			if ( ! $variation || ! $variation->exists() || ! $this->include_product( $variation ) ) {
@@ -264,7 +264,7 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 
 			$row = array_merge( $row, $this->build_custom_attribute_cell( $variation, $product ) );
 
-			$this->write_row( $out, $row );
+			yield $row;
 		}
 	}
 

@@ -109,10 +109,19 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
+	 * Filnamnsprefix för nedladdningen.
+	 *
+	 * @return string
+	 */
+	public function get_filename_prefix() {
+		return 'sello-products-';
+	}
+
+	/**
 	 * Generera CSV-strömmen och skicka den till webbläsaren som nedladdning.
 	 */
 	public function stream_csv() {
-		$filename = 'sello-products-' . gmdate( 'Y-m-d-Hi' ) . '.csv';
+		$filename = $this->get_filename_prefix() . gmdate( 'Y-m-d-Hi' ) . '.csv';
 
 		nocache_headers();
 		header( 'Content-Type: text/csv; charset=utf-8' );
@@ -136,31 +145,44 @@ class WOO_Sello_CSV_Generator {
 	 * @param resource $out Filhandtag (php://output).
 	 */
 	protected function stream_rows( $out ) {
+		foreach ( $this->get_rows_iter() as $row ) {
+			$this->write_row( $out, $row );
+		}
+	}
+
+	/**
+	 * Iterera färdiga rader (rubrikraden exkluderad) som associerade arrayer
+	 * med samma nycklar som collect_columns(). En generator håller
+	 * minnesanvändningen låg eftersom bara en produktfamilj finns i minnet åt gången.
+	 *
+	 * @return iterable<array>
+	 */
+	public function get_rows_iter() {
 		$columns = $this->collect_columns();
 
 		foreach ( $this->get_products_iter() as $product ) {
 			$template = array_fill_keys( $columns, '' );
 
 			if ( $product->is_type( 'variable' ) ) {
-				$this->stream_variable_rows( $out, $product, $template );
+				yield from $this->get_variable_rows_iter( $product, $template );
 			} elseif ( $this->include_product( $product ) ) {
-				$this->write_row( $out, array_merge( $template, $this->build_base_row( $product, $product ) ) );
+				yield array_merge( $template, $this->build_base_row( $product, $product ) );
 			}
 		}
 	}
 
 	/**
-	 * Strömma alla variationsrader för en variabel produkt.
+	 * Iterera variationsrader för en variabel produkt.
 	 *
 	 * Varianter med ett attribut som matchar Sellos grupptyper (color, size,
 	 * model) grupperas via Group sku och Group type. Övriga attribut kan inte
 	 * användas som grupptyp och lämnas utan grupp.
 	 *
-	 * @param resource   $out      Filhandtag.
-	 * @param WC_Product $product   Föräldraprodukten.
+	 * @param WC_Product $product  Föräldraprodukten.
 	 * @param array      $template Radmall med rubrikens kolumnordning.
+	 * @return iterable<array>
 	 */
-	protected function stream_variable_rows( $out, $product, $template ) {
+	protected function get_variable_rows_iter( $product, $template ) {
 		$parent_sku = $product->get_sku();
 		$group_type = $this->get_group_type( $product );
 
@@ -177,7 +199,7 @@ class WOO_Sello_CSV_Generator {
 				$row['Group type'] = $group_type;
 			}
 
-			$this->write_row( $out, $row );
+			yield $row;
 		}
 	}
 
