@@ -43,6 +43,15 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 	abstract public function get_filename_prefix();
 
 	/**
+	 * Filändelse för nedladdningen.
+	 *
+	 * @return string
+	 */
+	public function get_filename_extension() {
+		return 'csv';
+	}
+
+	/**
 	 * Kolumnrubriker för formatet.
 	 *
 	 * @return string[]
@@ -94,7 +103,7 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 	 * Generera CSV-strömmen och skicka den till webbläsaren som nedladdning.
 	 */
 	public function stream_csv() {
-		$filename = $this->get_filename_prefix() . gmdate( 'Y-m-d-Hi' ) . '.csv';
+		$filename = $this->get_filename_prefix() . gmdate( 'Y-m-d-Hi' ) . '.' . $this->get_filename_extension();
 
 		nocache_headers();
 		header( 'Content-Type: text/csv; charset=utf-8' );

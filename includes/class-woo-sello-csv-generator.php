@@ -118,10 +118,19 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
+	 * Filändelse för nedladdningen.
+	 *
+	 * @return string
+	 */
+	public function get_filename_extension() {
+		return 'csv';
+	}
+
+	/**
 	 * Generera CSV-strömmen och skicka den till webbläsaren som nedladdning.
 	 */
 	public function stream_csv() {
-		$filename = $this->get_filename_prefix() . gmdate( 'Y-m-d-Hi' ) . '.csv';
+		$filename = $this->get_filename_prefix() . gmdate( 'Y-m-d-Hi' ) . '.' . $this->get_filename_extension();
 
 		nocache_headers();
 		header( 'Content-Type: text/csv; charset=utf-8' );

@@ -18,9 +18,22 @@ defined( 'ABSPATH' ) || exit;
 class WOO_Sello_XLSX_Generator extends WOO_Sello_CSV_Generator {
 
 	/**
+	 * Filändelse för nedladdningen.
+	 *
+	 * @return string
+	 */
+	public function get_filename_extension() {
+		return 'xlsx';
+	}
+
+	/**
 	 * Generera XLSX-strömmen och skicka den till webbläsaren som nedladdning.
 	 */
 	public function stream_xlsx() {
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			wp_die( esc_html__( 'PHP-tillägget ZipArchive krävs för att generera Excel (.xlsx)-filer, men är inte aktiverat på webbservern.', 'woo-kustom-export' ) );
+		}
+
 		$filename = $this->get_filename_prefix() . gmdate( 'Y-m-d-Hi' ) . '.' . $this->get_filename_extension();
 
 		nocache_headers();
@@ -32,7 +45,7 @@ class WOO_Sello_XLSX_Generator extends WOO_Sello_CSV_Generator {
 		$writer->setAuthor( get_bloginfo( 'name' ) );
 
 		$columns = $this->collect_columns();
-		$types  = array_fill( 0, count( $columns ), 'string' );
+		$types   = array_fill( 0, count( $columns ), 'string' );
 
 		$writer->writeSheetHeader( 'Products', array_combine( $columns, $types ), array( 'freeze_rows' => true ) );
 
