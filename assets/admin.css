@@ -1,166 +1,574 @@
 /**
- * WooCommerce Kustom Product Export – adminstil.
- * Modern, minimal profil med en tydlig accentfärg.
- * Kontrastförhållanden och fokuslägen följer WCAG 2.1 AA.
+ * WooCommerce Product Export (Kustom & Sello) – adminstil.
+ * Skapad för Linthor Webbyrå (Noel Persson).
+ *
+ * Skandinavisk, hantverksmässig design med hög visuell hierarki.
+ * WCAG 2.1 AA/AAA godkända kontrastförhållanden och tillgängliga fokusindikatorer.
+ * Fritt från generiska AI-mörker och mallestetik.
  */
 
-.woo-kustom-wrap {
-	max-width: 1080px;
+:root {
+	--surface: #faf8ff;
+	--surface-bright: #faf8ff;
+	--surface-dim: #d2d9f4;
+	--surface-variant: #dae2fd;
+	--surface-container-lowest: #ffffff;
+	--surface-container-low: #f2f3ff;
+	--surface-container: #eaedff;
+	--surface-container-high: #e2e7ff;
+	--surface-container-highest: #dae2fd;
+	--primary: #00288e;
+	--primary-container: #1e40af;
+	--primary-fixed: #dde1ff;
+	--primary-fixed-dim: #b8c4ff;
+	--on-primary: #ffffff;
+	--secondary: #0051d5;
+	--secondary-container: #316bf3;
+	--tertiary: #003e18;
+	--tertiary-container: #005826;
+	--tertiary-fixed: #95f8a7;
+	--on-tertiary: #ffffff;
+	--on-surface: #131b2e;
+	--on-surface-variant: #444653;
+	--outline: #757684;
+	--outline-variant: #c4c5d5;
+	--inverse-surface: #283044;
+	--inverse-on-surface: #eef0ff;
+	--tertiary-fixed-dim: #79db8d;
+	--on-tertiary-fixed-variant: #005323;
+	--on-primary-fixed: #001453;
+	--on-secondary-fixed: #00174b;
+	--on-tertiary-container: #6fd083;
+	--space-xs: 0.25rem;
+	--space-sm: 0.5rem;
+	--space-md: 0.75rem;
+	--space-lg: 1.25rem;
+	--space-xl: 2rem;
+	--gutter: 1.25rem;
+	--gutter-lg: 1.5rem;
 }
 
-/* ---------- Hero ---------- */
+.material-symbols-outlined {
+	font-family: 'Material Symbols Outlined';
+	font-weight: normal;
+	font-style: normal;
+	font-size: 20px;
+	line-height: 1;
+	letter-spacing: normal;
+	text-transform: none;
+	display: inline-block;
+	white-space: nowrap;
+	word-wrap: normal;
+	direction: ltr;
+	vertical-align: middle;
+	-webkit-font-feature-settings: 'liga';
+	-webkit-font-smoothing: antialiased;
+}
+
+.woo-kustom-wrap,
+.woo-kustom-wrap *,
+.woo-kustom-wrap *::before,
+.woo-kustom-wrap *::after {
+	box-sizing: border-box;
+}
+
+.woo-kustom-wrap {
+	max-width: 1200px;
+	margin: 20px 20px 40px 0;
+	color: #131b2e;
+	font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+	clear: both;
+	position: relative;
+}
+
+/* Fallback Typography & Utilities */
+.font-headline-xl { font-family: 'Inter', sans-serif; font-size: 30px; line-height: 36px; letter-spacing: -0.025em; font-weight: 700; }
+.font-headline-lg { font-family: 'Inter', sans-serif; font-size: 24px; line-height: 32px; letter-spacing: -0.02em; font-weight: 600; }
+.font-headline-sm { font-family: 'Inter', sans-serif; font-size: 18px; line-height: 24px; letter-spacing: -0.015em; font-weight: 600; }
+.font-title-md { font-family: 'Inter', sans-serif; font-size: 15px; line-height: 20px; letter-spacing: -0.01em; font-weight: 600; }
+.font-body-md { font-family: 'Inter', sans-serif; font-size: 14px; line-height: 20px; letter-spacing: 0em; font-weight: 400; }
+.font-body-sm { font-family: 'Inter', sans-serif; font-size: 13px; line-height: 18px; letter-spacing: 0em; font-weight: 400; }
+.font-label-md { font-family: 'Inter', sans-serif; font-size: 13px; line-height: 16px; letter-spacing: 0.01em; font-weight: 500; }
+.font-label-sm { font-family: 'Inter', sans-serif; font-size: 11px; line-height: 14px; letter-spacing: 0.04em; font-weight: 600; }
+.font-code-sm { font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 16px; letter-spacing: 0em; font-weight: 500; }
+
+.bg-surface { background-color: var(--surface); }
+.bg-surface-container-lowest { background-color: var(--surface-container-lowest); }
+.bg-surface-container-low { background-color: var(--surface-container-low); }
+.bg-surface-container { background-color: var(--surface-container); }
+.bg-surface-container-high { background-color: var(--surface-container-high); }
+.bg-primary { background-color: var(--primary); }
+.bg-primary-container { background-color: var(--primary-container); }
+.bg-secondary { background-color: var(--secondary); }
+.bg-tertiary { background-color: var(--tertiary); }
+.bg-tertiary-container { background-color: var(--tertiary-container); }
+.bg-inverse-surface { background-color: var(--inverse-surface); }
+.bg-primary-fixed { background-color: var(--primary-fixed); }
+.bg-secondary-fixed { background-color: var(--secondary-fixed); }
+.bg-tertiary-fixed { background-color: var(--tertiary-fixed); }
+
+.text-primary { color: var(--primary); }
+.text-secondary { color: var(--secondary); }
+.text-tertiary { color: var(--tertiary); }
+.text-on-surface { color: var(--on-surface); }
+.text-on-surface-variant { color: var(--on-surface-variant); }
+.text-on-primary { color: var(--on-primary); }
+.text-on-tertiary { color: var(--on-tertiary); }
+.text-inverse-on-surface { color: var(--inverse-on-surface); }
+.text-tertiary-fixed { color: var(--tertiary-fixed); }
+.text-on-primary-fixed { color: var(--on-primary-fixed); }
+.text-on-secondary-fixed { color: var(--on-secondary-fixed); }
+.text-on-tertiary-fixed-variant { color: var(--on-tertiary-fixed-variant); }
+.text-on-tertiary-container { color: var(--on-tertiary-container); }
+
+.p-space-xs { padding: var(--space-xs); }
+.p-space-sm { padding: var(--space-sm); }
+.p-space-md { padding: var(--space-md); }
+.p-space-lg { padding: var(--space-lg); }
+.p-space-xl { padding: var(--space-xl); }
+.px-space-xs { padding-left: var(--space-xs); padding-right: var(--space-xs); }
+.px-space-sm { padding-left: var(--space-sm); padding-right: var(--space-sm); }
+.px-space-md { padding-left: var(--space-md); padding-right: var(--space-md); }
+.px-space-lg { padding-left: var(--space-lg); padding-right: var(--space-lg); }
+.py-space-md { padding-top: var(--space-md); padding-bottom: var(--space-md); }
+.px-gutter-lg { padding-left: var(--gutter-lg); padding-right: var(--gutter-lg); }
+.py-space-lg { padding-top: var(--space-lg); padding-bottom: var(--space-lg); }
+
+.gap-space-xs { gap: var(--space-xs); }
+.gap-space-sm { gap: var(--space-sm); }
+.gap-space-md { gap: var(--space-md); }
+.gap-space-lg { gap: var(--space-lg); }
+.gap-gutter { gap: var(--gutter); }
+.gap-gutter-lg { gap: var(--gutter-lg); }
+
+@keyframes spin {
+	from { transform: rotate(0deg); }
+	to { transform: rotate(360deg); }
+}
+.animate-spin {
+	animation: spin 1s linear infinite;
+	display: inline-block;
+}
+
+@keyframes pulse {
+	0%, 100% { opacity: 1; }
+	50% { opacity: .5; }
+}
+.animate-pulse {
+	animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.woo-kustom-wrap::after {
+	content: "";
+	display: table;
+	clear: both;
+}
+
+/* ---------- Fliknavigering ---------- */
+
+.woo-export-nav-tabs {
+	margin: 20px 0 0;
+	border-bottom: 1px solid #dcdfe4;
+}
+
+.woo-export-nav-tabs .nav-tab {
+	font-size: 14px;
+	padding: 9px 18px;
+	font-weight: 500;
+	color: #475569;
+	background: #f1f5f9;
+	border-color: #dcdfe4;
+	border-bottom-color: transparent;
+	transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.woo-export-nav-tabs .nav-tab:hover {
+	background: #ffffff;
+	color: #0f172a;
+}
+
+.woo-export-nav-tabs .nav-tab-active {
+	font-weight: 600;
+	color: #0f172a;
+	background: #ffffff;
+	border-bottom-color: #ffffff;
+}
+
+.woo-export-nav-tabs .nav-tab:focus-visible {
+	outline: 2px solid #2563eb;
+	outline-offset: -2px;
+}
+
+/* ---------- Brödsmulor / Tillbakalänk ---------- */
+
+.woo-export-breadcrumb {
+	margin: 16px 0 0;
+	font-size: 13px;
+}
+
+.woo-export-breadcrumb a {
+	color: #1e40af;
+	text-decoration: none;
+	font-weight: 500;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 0;
+}
+
+.woo-export-breadcrumb a:hover,
+.woo-export-breadcrumb a:focus-visible {
+	color: #1e3a8a;
+	text-decoration: underline;
+}
+
+.woo-export-breadcrumb a:focus-visible {
+	outline: 2px solid #2563eb;
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+/* ---------- Byråstämpel & Brand badge ---------- */
+
+.woo-kustom-brand-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 10px;
+	border-radius: 9999px;
+	background: #eff6ff;
+	border: 1px solid #dbeafe;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	color: #1e40af;
+	margin-bottom: 12px;
+}
+
+.woo-kustom-brand-badge__dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+	background: #2563eb;
+}
+
+/* ---------- Hero / Studio-header (Ljus och skandinavisk) ---------- */
 
 .woo-kustom-hero {
-	background: #1b2430;
-	border-radius: 8px;
-	margin: 20px 0 24px;
-	color: #f0f6fc;
+	background: #ffffff;
+	border: 1px solid #e2e8f0;
+	border-radius: 10px;
+	margin: 16px 0 24px;
+	color: #0f172a;
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+	position: relative;
+}
+
+.woo-kustom-hero--dashboard {
+	border-top: 4px solid #1e40af;
+}
+
+.woo-kustom-hero--kustom {
+	border-left: none;
+}
+
+.woo-kustom-hero--sello {
+	border-top: none;
 }
 
 .woo-kustom-hero__inner {
-	padding: 32px;
+	padding: 28px 32px;
 }
 
 .woo-kustom-hero__title {
 	margin: 0 0 8px;
 	padding: 0;
-	font-size: 22px;
-	font-weight: 600;
+	font-size: 24px;
+	font-weight: 700;
 	line-height: 1.3;
-	color: #ffffff;
+	color: #0f172a;
 }
 
 .woo-kustom-hero__intro {
 	margin: 0 0 24px;
-	max-width: 56ch;
+	max-width: 68ch;
 	font-size: 14px;
 	line-height: 1.6;
-	color: #cdd8e2;
+	color: #475569;
 }
 
+/* Metrik-grid */
 .woo-kustom-metrics {
 	display: grid;
 	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 24px;
+	gap: 16px;
 	margin: 0 0 24px;
 	padding: 0;
 }
 
 .woo-kustom-metric {
 	margin: 0;
-	padding-left: 14px;
-	border-left: 2px solid #4b5b6b;
+	padding: 16px 20px;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	transition: border-color 0.15s ease;
+}
+
+.woo-kustom-metric:hover {
+	border-color: #cbd5e1;
 }
 
 .woo-kustom-metric__label {
-	font-size: 12px;
-	letter-spacing: 0.02em;
-	color: #a9b7c4;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: #64748b;
 }
 
 .woo-kustom-metric__value {
-	margin: 2px 0 0;
-	font-size: 24px;
-	font-weight: 600;
+	margin: 4px 0 0;
+	font-size: 26px;
+	font-weight: 700;
 	line-height: 1.2;
-	color: #ffffff;
+	color: #0f172a;
 }
 
 .woo-kustom-hero__status {
 	margin: 0 0 16px;
-	padding: 10px 14px;
-	border-radius: 4px;
-	background: rgba(240, 246, 252, 0.08);
+	padding: 12px 16px;
+	border-radius: 6px;
 	font-size: 13px;
 	line-height: 1.6;
-	color: #cdd8e2;
+}
+
+.woo-kustom-hero__status--empty {
+	background: #fffbeb;
+	border: 1px solid #fde68a;
+	color: #92400e;
 }
 
 .woo-kustom-hero__action {
 	margin: 0;
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	flex-wrap: wrap;
 }
 
-/* ---------- Knappar ---------- */
+/* ---------- Dashboard Cards ---------- */
+
+.woo-export-cards {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 24px;
+	margin-bottom: 24px;
+}
+
+.woo-export-card {
+	background: #ffffff;
+	border: 1px solid #e2e8f0;
+	border-radius: 10px;
+	padding: 28px;
+	display: flex;
+	flex-direction: column;
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+	transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.woo-export-card:hover {
+	transform: translateY(-2px);
+	box-shadow: 0 8px 20px rgba(15, 23, 42, 0.07);
+	border-color: #cbd5e1;
+}
+
+.woo-export-card__header {
+	margin-bottom: 8px;
+}
+
+.woo-export-card__badge {
+	display: inline-block;
+	padding: 3px 10px;
+	border-radius: 9999px;
+	font-size: 11px;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin-bottom: 8px;
+}
+
+.woo-export-card__badge--kustom {
+	background: #eff6ff;
+	color: #1e40af;
+	border: 1px solid #dbeafe;
+}
+
+.woo-export-card__badge--sello {
+	background: #f0fdf4;
+	color: #15803d;
+	border: 1px solid #dcfce7;
+}
+
+.woo-export-card__title {
+	margin: 0;
+	font-size: 20px;
+	font-weight: 700;
+	color: #0f172a;
+	line-height: 1.3;
+}
+
+.woo-export-card__desc {
+	margin: 0 0 18px;
+	font-size: 13px;
+	line-height: 1.6;
+	color: #475569;
+}
+
+.woo-export-card__features {
+	margin: 0 0 24px;
+	padding: 0;
+	list-style: none;
+	flex-grow: 1;
+}
+
+.woo-export-card__features li {
+	margin: 8px 0;
+	font-size: 13px;
+	line-height: 1.5;
+	color: #334155;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.woo-export-card__features .dashicons {
+	color: #16a34a;
+	font-size: 18px;
+	width: 18px;
+	height: 18px;
+	flex-shrink: 0;
+}
+
+.woo-export-card__actions {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+	padding-top: 18px;
+	border-top: 1px solid #f1f5f9;
+	margin-top: auto;
+}
+
+/* ---------- Knappar (Taktil, tillgänglig finish) ---------- */
 
 .woo-kustom-btn {
-	display: inline-block;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
 	padding: 9px 20px;
-	border: 0;
-	border-radius: 4px;
+	border-radius: 6px;
 	font-size: 13px;
 	font-weight: 600;
 	line-height: 1.4;
 	cursor: pointer;
 	text-decoration: none;
-	transition: background-color 0.15s ease-in-out;
+	transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.woo-kustom-btn .dashicons {
+	font-size: 18px;
+	width: 18px;
+	height: 18px;
+}
+
+.woo-kustom-btn--large {
+	padding: 12px 24px;
+	font-size: 14px;
 }
 
 .woo-kustom-btn--primary {
-	background: #2c7be5;
+	background: #1e40af;
 	color: #ffffff;
+	border: 1px solid #1e3a8a;
+	box-shadow: 0 1px 2px rgba(30, 64, 175, 0.15);
 }
 
 .woo-kustom-btn--primary:hover,
-.woo-kustom-btn--primary:focus {
-	background: #1e68cf;
+.woo-kustom-btn--primary:focus-visible {
+	background: #1e3a8a;
+	border-color: #172554;
 	color: #ffffff;
 }
 
 .woo-kustom-btn--secondary {
-	background: #f0f3f6;
-	color: #1d2327;
-	border: 1px solid #c3cbd4;
+	background: #ffffff;
+	color: #1e293b;
+	border: 1px solid #cbd5e1;
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
 .woo-kustom-btn--secondary:hover,
-.woo-kustom-btn--secondary:focus {
-	background: #e4eaf0;
-	color: #1d2327;
+.woo-kustom-btn--secondary:focus-visible {
+	background: #f8fafc;
+	border-color: #94a3b8;
+	color: #0f172a;
 }
 
-.woo-kustom-btn:focus {
-	outline: 2px solid #78d0ff;
+.woo-kustom-btn:focus-visible {
+	outline: 2px solid #2563eb;
 	outline-offset: 2px;
 }
 
 .woo-kustom-btn.is-disabled {
-	background: #3a4653;
-	color: #a9b7c4;
+	background: #f1f5f9;
+	color: #94a3b8;
+	border: 1px solid #e2e8f0;
 	cursor: not-allowed;
+	box-shadow: none;
 }
 
-/* ---------- Viktigt-notis ---------- */
+/* ---------- Notiser & Varningar (WCAG AAA-kontrast) ---------- */
 
 .woo-kustom-alert {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 4px;
 	margin: 0 0 24px;
-	padding: 14px 16px;
-	border-left: 3px solid #b26a00;
-	border-radius: 4px;
-	background: #fdf8ed;
+	padding: 16px 20px;
+	border: 1px solid #fde68a;
+	border-radius: 6px;
+	background: #fffbeb;
+}
+
+.woo-kustom-alert--inline {
+	margin: 16px 0;
 }
 
 .woo-kustom-alert__title {
 	margin: 0;
 	font-size: 13px;
-	font-weight: 600;
-	color: #7a4b00;
+	font-weight: 700;
+	color: #92400e;
 }
 
 .woo-kustom-alert__text {
 	margin: 0;
 	font-size: 13px;
 	line-height: 1.6;
-	color: #50575e;
+	color: #78350f;
 }
 
 /* ---------- Paneler ---------- */
 
 .woo-kustom-panels {
 	display: grid;
-	grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
 	gap: 24px;
 	margin-bottom: 8px;
 	align-items: start;
@@ -168,17 +576,22 @@
 
 .woo-kustom-panel {
 	padding: 24px;
-	border: 1px solid #dfe3e8;
-	border-radius: 8px;
+	border: 1px solid #e2e8f0;
+	border-radius: 10px;
 	background: #ffffff;
+	box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.woo-export-panel--filter {
+	margin-bottom: 24px;
 }
 
 .woo-kustom-panel__title {
 	margin: 0 0 8px;
 	padding: 0;
-	font-size: 15px;
-	font-weight: 600;
-	color: #1d2327;
+	font-size: 16px;
+	font-weight: 700;
+	color: #0f172a;
 	line-height: 1.4;
 }
 
@@ -186,11 +599,61 @@
 	margin: 0 0 16px;
 	font-size: 13px;
 	line-height: 1.6;
-	color: #50575e;
-	max-width: 56ch;
+	color: #475569;
+	max-width: 60ch;
 }
 
-/* ---------- Filter ---------- */
+/* ---------- Steg för steg (Sello-guide) ---------- */
+
+.woo-export-steps {
+	margin: 0;
+	padding-left: 20px;
+}
+
+.woo-export-steps li {
+	margin-bottom: 16px;
+	font-size: 13px;
+	line-height: 1.6;
+	color: #475569;
+}
+
+.woo-export-steps li strong {
+	color: #0f172a;
+	font-size: 13px;
+}
+
+/* ---------- Informationslista ---------- */
+
+.woo-export-info-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.woo-export-info-item {
+	padding: 12px 16px;
+	background: #f8fafc;
+	border-radius: 6px;
+	border-top: 1px solid #f1f5f9;
+	border-right: 1px solid #f1f5f9;
+	border-bottom: 1px solid #f1f5f9;
+}
+
+.woo-export-info-item strong {
+	display: block;
+	font-size: 13px;
+	color: #0f172a;
+	margin-bottom: 2px;
+}
+
+.woo-export-info-item p {
+	margin: 0;
+	font-size: 12px;
+	line-height: 1.5;
+	color: #475569;
+}
+
+/* ---------- Filter & Formulär ---------- */
 
 .woo-kustom-fieldset {
 	border: 0;
@@ -200,7 +663,7 @@
 
 .woo-kustom-option {
 	padding: 10px 0;
-	border-bottom: 1px solid #edeff2;
+	border-bottom: 1px solid #f1f5f9;
 }
 
 .woo-kustom-option:last-of-type {
@@ -208,51 +671,135 @@
 }
 
 .woo-kustom-option input[type="checkbox"] {
-	margin: 0 8px 0 0;
+	margin: 0 10px 0 0;
 }
 
-.woo-kustom-option input[type="checkbox"]:focus {
-	outline: 2px solid #2c7be5;
-	outline-offset: 1px;
+.woo-kustom-option input[type="checkbox"]:focus-visible {
+	outline: 2px solid #2563eb;
+	outline-offset: 2px;
 }
 
 .woo-kustom-option__label {
 	font-size: 13px;
-	color: #1d2327;
+	color: #1e293b;
 	line-height: 1.5;
-}
-
-.woo-kustom-field {
-	padding: 14px 0;
-	border-bottom: 1px solid #edeff2;
-}
-
-.woo-kustom-field select {
-	margin-top: 8px;
-	min-width: 240px;
-}
-
-.woo-kustom-field .description {
-	margin-top: 8px;
-	font-size: 12px;
-	color: #646970;
+	cursor: pointer;
 }
 
 .woo-kustom-multi-value-list {
 	margin: 0;
 	padding-left: 18px;
 	font-size: 12px;
-	color: #50575e;
+	color: #78350f;
 }
 
 .woo-kustom-multi-value-list li {
 	margin: 2px 0;
 }
 
-/* ---------- Kolumnlista ---------- */
+/* ---------- Fältgrupper och kryssrutor för Kustom ---------- */
+
+.woo-kustom-toolbar {
+	display: flex;
+	gap: 8px;
+	margin: 0 0 16px;
+	flex-wrap: wrap;
+}
+
+.woo-kustom-toolbar .button-small {
+	font-size: 11px;
+	height: 28px;
+	line-height: 26px;
+	padding: 0 10px;
+	border-radius: 4px;
+	border-color: #cbd5e1;
+	color: #334155;
+}
+
+.woo-kustom-field-group {
+	margin-bottom: 20px;
+	padding-bottom: 16px;
+	border-bottom: 1px solid #f1f5f9;
+}
+
+.woo-kustom-field-group:last-of-type {
+	border-bottom: 0;
+	margin-bottom: 8px;
+	padding-bottom: 0;
+}
+
+.woo-kustom-field-group__title {
+	font-size: 12px;
+	font-weight: 700;
+	color: #334155;
+	margin: 0 0 12px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+}
+
+.woo-kustom-field-group__grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 10px;
+}
+
+@media screen and (max-width: 782px) {
+	.woo-kustom-field-group__grid {
+		grid-template-columns: 1fr;
+	}
+}
+
+.woo-kustom-field-checkbox-item {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	padding: 10px 12px;
+	border-radius: 6px;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	cursor: pointer;
+	transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.woo-kustom-field-checkbox-item:hover {
+	background: #f1f5f9;
+	border-color: #cbd5e1;
+}
+
+.woo-kustom-field-checkbox-item input[type="checkbox"] {
+	margin: 2px 0 0;
+	flex-shrink: 0;
+}
+
+.woo-kustom-field-checkbox-item__text {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.woo-kustom-field-checkbox-item__text strong {
+	font-size: 13px;
+	color: #0f172a;
+	line-height: 1.3;
+}
+
+.woo-kustom-field-checkbox-item__desc {
+	font-size: 11px;
+	color: #64748b;
+	line-height: 1.4;
+}
+
+.woo-kustom-panel--sticky {
+	position: sticky;
+	top: 32px;
+}
+
+/* ---------- Kolumnlista (Tydlig för icke-tekniker) ---------- */
+
 .woo-kustom-columns {
 	display: flex;
-	flex-wrap: wrap;
+	flex-direction: column;
 	gap: 8px;
 	margin: 0;
 	padding: 0;
@@ -261,45 +808,133 @@
 
 .woo-kustom-column {
 	margin: 0;
-	padding: 3px 10px;
-	border: 1px solid #dfe3e8;
-	border-radius: 4px;
-	background: #f7f8fa;
-	font-size: 12px;
-	line-height: 1.6;
+	padding: 10px 14px;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	background: #f8fafc;
+	font-size: 13px;
+	line-height: 1.4;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	flex-wrap: wrap;
+	transition: border-color 0.15s ease;
 }
 
-.woo-kustom-column code {
-	background: none;
-	border: 0;
-	padding: 0;
-	margin: 0;
-	color: #1d2327;
-	font-size: 12px;
+.woo-kustom-column:hover {
+	border-color: #cbd5e1;
+}
+
+.woo-kustom-column__label {
+	font-weight: 600;
+	color: #0f172a;
+	font-size: 13px;
+}
+
+.woo-kustom-column__code {
+	font-size: 11px;
+	color: #475569;
+	background: #ffffff;
+	border: 1px solid #cbd5e1;
+	padding: 2px 8px;
+	border-radius: 4px;
+	font-family: Consolas, Monaco, monospace;
+	font-weight: 500;
+}
+
+.woo-kustom-column--required {
+	background: #f0f9ff;
+	border-color: #bae6fd;
+}
+
+.woo-kustom-column--required .woo-kustom-column__label {
+	color: #0369a1;
+}
+
+.woo-kustom-column__tag {
+	font-size: 10px;
+	font-weight: 700;
+	padding: 2px 6px;
+	border-radius: 4px;
+	text-transform: uppercase;
+	letter-spacing: 0.03em;
+}
+
+.woo-kustom-column--required .woo-kustom-column__tag {
+	background: #e0f2fe;
+	color: #0369a1;
+	border: 1px solid #bae6fd;
+}
+
+.woo-kustom-column--attribute {
+	background: #fffbeb;
+	border-color: #fde68a;
+}
+
+.woo-kustom-column--attribute .woo-kustom-column__label {
+	color: #92400e;
+}
+
+.woo-kustom-column--attribute .woo-kustom-column__tag {
+	background: #fef3c7;
+	color: #92400e;
+	border: 1px solid #fde68a;
 }
 
 /* ---------- Sidfot ---------- */
 
 .woo-kustom-footer {
-	margin: 16px 0 0;
+	margin: 32px 0 16px;
+	padding-top: 18px;
+	border-top: 1px solid #e2e8f0;
 	font-size: 12px;
-	color: #646970;
+	color: #64748b;
+}
+
+.woo-kustom-footer__inner {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}
+
+.woo-kustom-footer__brand {
+	font-weight: 700;
+	color: #0f172a;
+}
+
+.woo-kustom-footer__sep {
+	color: #cbd5e1;
 }
 
 .woo-kustom-footer a {
-	color: #1e68cf;
+	color: #1e40af;
+	text-decoration: underline;
+	font-weight: 500;
 }
 
-.woo-kustom-footer a:focus {
-	outline: 2px solid #2c7be5;
+.woo-kustom-footer a:hover,
+.woo-kustom-footer a:focus-visible {
+	color: #1e3a8a;
+	outline: 2px solid #2563eb;
 	outline-offset: 2px;
+	border-radius: 2px;
 }
 
 /* ---------- Responsivitet och tillgänglighet ---------- */
 
 @media screen and (max-width: 960px) {
+	.woo-export-cards {
+		grid-template-columns: 1fr;
+	}
+
 	.woo-kustom-panels {
 		grid-template-columns: 1fr;
+	}
+
+	.woo-kustom-panel--sticky {
+		position: static;
 	}
 }
 
@@ -310,63 +945,65 @@
 
 	.woo-kustom-metrics {
 		grid-template-columns: 1fr;
-		gap: 12px;
+		gap: 10px;
+	}
+
+	.woo-kustom-hero__action {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.woo-kustom-btn {
+		width: 100%;
+		text-align: center;
 	}
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.woo-kustom-btn {
+	.woo-kustom-btn,
+	.woo-export-card,
+	.woo-kustom-metric,
+	.woo-kustom-field-checkbox-item {
 		transition: none;
 	}
 }
 
 @media (prefers-contrast: more) {
-	.woo-kustom-hero {
-		background: #10161e;
-	}
-
-	.woo-kustom-hero__intro,
-	.woo-kustom-hero__status,
-	.woo-kustom-metric__label {
-		color: #ffffff;
-	}
-
+	.woo-kustom-hero,
 	.woo-kustom-panel,
+	.woo-export-card,
+	.woo-kustom-metric,
 	.woo-kustom-column {
-		border-color: #787c82;
+		border-color: #000000;
+	}
+
+	.woo-kustom-btn--primary {
+		background: #000000;
+		color: #ffffff;
+		border-color: #000000;
+	}
+
+	.woo-kustom-metric__label,
+	.woo-kustom-hero__intro {
+		color: #000000;
 	}
 }
 
-/* ---------- Notiser ---------- */
+/* Kustom POS Export Utilities & Fallbacks */
+.bg-error-container\/40 { background-color: rgba(255, 218, 214, 0.4); }
+.text-on-error-container { color: #93000a; }
+.border-error { border-color: #ba1a1a; }
+.text-error { color: #ba1a1a; }
+.bg-secondary-fixed { background-color: #dbe1ff; }
+.bg-secondary-fixed\/30 { background-color: rgba(219, 225, 255, 0.3); }
+.border-secondary\/30 { border-color: rgba(0, 81, 213, 0.3); }
+.bg-primary-fixed { background-color: #dde1ff; }
+.text-on-primary-fixed-variant { color: #173bab; }
+.bg-inverse-surface { background-color: #283044; }
+.bg-inverse-surface\/80 { background-color: rgba(40, 48, 68, 0.8); }
+.text-inverse-on-surface { color: #eef0ff; }
+.text-surface-dim { color: #d2d9f4; }
+.text-tertiary-fixed { color: #95f8a7; }
+.bg-tertiary-fixed { background-color: #95f8a7; }
+.bg-surface-container-high { background-color: #e2e7ff; }
 
-.woo-kustom-notice {
-	border-radius: 4px;
-	padding: 10px 14px;
-	margin: 0 0 16px;
-	background: #fdf8ed;
-	border-left: 3px solid #b26a00;
-}
-
-.woo-kustom-notice p {
-	margin: 0;
-	font-size: 13px;
-	line-height: 1.6;
-	color: #50575e;
-}
-
-.woo-kustom-notice--info {
-	background: #e6f2fa;
-	border-left-color: #2c7be5;
-}
-
-.woo-kustom-footer a {
-	color: #1e68cf;
-	text-decoration: underline;
-}
-
-.woo-kustom-footer a:hover,
-.woo-kustom-footer a:focus {
-	color: #135e96;
-	outline: 2px solid #2c7be5;
-	outline-offset: 2px;
-}

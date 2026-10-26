@@ -1,7 +1,7 @@
 {
   "name": "woo-kustom-export",
-  "version": "1.2.0",
-  "description": "Export WooCommerce products to a CSV file ready for Kustom POS product import.",
+  "version": "1.4.1",
+  "description": "Exportera WooCommerce-produkter till CSV och Excel redo för Kustom POS och Sello.",
   "author": "Linthor Webbyrå",
   "license": "GPL-2.0-or-later",
   "private": true,

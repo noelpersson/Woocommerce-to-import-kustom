@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: WooCommerce Kustom Product Export
+ * Plugin Name: WooCommerce Product Export (Kustom & Sello)
  * Plugin URI:  https://linthor.com
- * Description: Exporterar alla WooCommerce-produkter (enkla och variabla) till CSV-filer för bulkimport i Kustom POS och Sello.
- * Version:     1.2.0
+ * Description: Exporterar alla WooCommerce-produkter (enkla och variabla) för bulkimport i Kustom POS och Sello.
+ * Version:     1.4.1
  * Author:      Linthor Webbyrå
  * Author URI:  https://linthor.com
  * License:     GPL-2.0-or-later
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WOO_KUSTOM_EXPORT_VERSION', '1.2.0' );
+define( 'WOO_KUSTOM_EXPORT_VERSION', '1.4.1' );
 define( 'WOO_KUSTOM_EXPORT_PLUGIN_FILE', __FILE__ );
 define( 'WOO_KUSTOM_EXPORT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WOO_KUSTOM_EXPORT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -25,7 +25,7 @@ define( 'WOO_KUSTOM_EXPORT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
  */
 function woo_kustom_export_missing_woocommerce_notice() {
 	echo '<div class="error"><p>';
-	esc_html_e( 'WooCommerce Kustom Product Export kräver att WooCommerce är installerat och aktiverat.', 'woo-kustom-export' );
+	esc_html_e( 'WooCommerce Product Export (Kustom & Sello) kräver att WooCommerce är installerat och aktiverat.', 'woo-kustom-export' );
 	echo '</p></div>';
 }
 

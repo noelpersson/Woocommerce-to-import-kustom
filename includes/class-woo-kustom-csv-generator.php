@@ -13,17 +13,11 @@ defined( 'ABSPATH' ) || exit;
 class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 
 	/**
-	 * Valfria kolumner och deras standardläge (avslagna tills formatet verifierats mot Kustoms exempelfiler).
+	 * Valfria kolumner och deras aktiva status.
 	 *
 	 * @var array<string,bool>
 	 */
-	protected $optional_columns = array(
-		'sku'          => false,
-		'category'     => false,
-		'ean'          => false,
-		'image_url'    => false,
-		'stock_status' => false,
-	);
+	protected $optional_columns = array();
 
 	/**
 	 * Intern cache för attributrubriker, undviker upprepade katalogskanningar.
@@ -40,6 +34,176 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 	protected $variation_attribute_cache = array();
 
 	/**
+	 * Hämta alla stödda valfria kolumner från WooCommerce med etiketter, grupp och beskrivning.
+	 *
+	 * @return array<string,array{label:string,group:string,desc:string}>
+	 */
+	public static function get_supported_optional_columns() {
+		return array(
+			// Grupp: Identifiering
+			'sku'                => array(
+				'label' => __( 'Artikelnummer (SKU)', 'woo-kustom-export' ),
+				'group' => __( 'Identifiering & Grunddata', 'woo-kustom-export' ),
+				'desc'  => __( 'Produktens eller variantens unika artikelnummer.', 'woo-kustom-export' ),
+			),
+			'product_id'         => array(
+				'label' => __( 'Produkt-ID / Variant-ID', 'woo-kustom-export' ),
+				'group' => __( 'Identifiering & Grunddata', 'woo-kustom-export' ),
+				'desc'  => __( 'WooCommerce interna numeriska post-ID.', 'woo-kustom-export' ),
+			),
+			'parent_id'          => array(
+				'label' => __( 'Föräldra-ID (Parent ID)', 'woo-kustom-export' ),
+				'group' => __( 'Identifiering & Grunddata', 'woo-kustom-export' ),
+				'desc'  => __( 'ID för föräldraprodukten vid varianter (post_parent).', 'woo-kustom-export' ),
+			),
+			'parent_sku'         => array(
+				'label' => __( 'Föräldra-SKU', 'woo-kustom-export' ),
+				'group' => __( 'Identifiering & Grunddata', 'woo-kustom-export' ),
+				'desc'  => __( 'Artikelnummer för föräldraprodukten vid varianter.', 'woo-kustom-export' ),
+			),
+			'product_type'       => array(
+				'label' => __( 'Produkttyp (Type)', 'woo-kustom-export' ),
+				'group' => __( 'Identifiering & Grunddata', 'woo-kustom-export' ),
+				'desc'  => __( 'Typ av produkt, t.ex. simple eller variation.', 'woo-kustom-export' ),
+			),
+			'status'             => array(
+				'label' => __( 'Produktstatus (Status)', 'woo-kustom-export' ),
+				'group' => __( 'Identifiering & Grunddata', 'woo-kustom-export' ),
+				'desc'  => __( 'Produktens status i WooCommerce (t.ex. publish eller draft).', 'woo-kustom-export' ),
+			),
+
+			// Grupp: Priser & Moms
+			'regular_price'      => array(
+				'label' => __( 'Ordinarie pris (inkl. moms)', 'woo-kustom-export' ),
+				'group' => __( 'Priser & Moms', 'woo-kustom-export' ),
+				'desc'  => __( 'Standardpris inklusive moms.', 'woo-kustom-export' ),
+			),
+			'sale_price'         => array(
+				'label' => __( 'Reapris (inkl. moms)', 'woo-kustom-export' ),
+				'group' => __( 'Priser & Moms', 'woo-kustom-export' ),
+				'desc'  => __( 'Kampanj- eller reapris inklusive moms om aktivt.', 'woo-kustom-export' ),
+			),
+			'price_excluding_vat'=> array(
+				'label' => __( 'Pris exkl. moms', 'woo-kustom-export' ),
+				'group' => __( 'Priser & Moms', 'woo-kustom-export' ),
+				'desc'  => __( 'Aktuellt försäljningspris exklusive moms.', 'woo-kustom-export' ),
+			),
+			'tax_class'          => array(
+				'label' => __( 'Momsklass (Tax class)', 'woo-kustom-export' ),
+				'group' => __( 'Priser & Moms', 'woo-kustom-export' ),
+				'desc'  => __( 'Momsklassens slug i WooCommerce (t.ex. standard eller reduced-rate).', 'woo-kustom-export' ),
+			),
+			'tax_status'         => array(
+				'label' => __( 'Skattestatus (Tax status)', 'woo-kustom-export' ),
+				'group' => __( 'Priser & Moms', 'woo-kustom-export' ),
+				'desc'  => __( 'Anger om produkten är momspliktig (taxable, none, shipping).', 'woo-kustom-export' ),
+			),
+
+			// Grupp: Lager
+			'stock_quantity'     => array(
+				'label' => __( 'Lagersaldo (antal)', 'woo-kustom-export' ),
+				'group' => __( 'Lager & Tillgänglighet', 'woo-kustom-export' ),
+				'desc'  => __( 'Faktiskt antal enheter i lager.', 'woo-kustom-export' ),
+			),
+			'stock_status'       => array(
+				'label' => __( 'Lagerstatus', 'woo-kustom-export' ),
+				'group' => __( 'Lager & Tillgänglighet', 'woo-kustom-export' ),
+				'desc'  => __( 'Lagerstatus: instock eller outofstock.', 'woo-kustom-export' ),
+			),
+			'manage_stock'       => array(
+				'label' => __( 'Lagerhantering', 'woo-kustom-export' ),
+				'group' => __( 'Lager & Tillgänglighet', 'woo-kustom-export' ),
+				'desc'  => __( 'Anger om lagersaldo hanteras (yes / no).', 'woo-kustom-export' ),
+			),
+
+			// Grupp: Streckkoder
+			'gtin'               => array(
+				'label' => __( 'GTIN / EAN-streckkod', 'woo-kustom-export' ),
+				'group' => __( 'Streckkoder & Koder', 'woo-kustom-export' ),
+				'desc'  => __( 'GTIN / EAN-streckkod för kassa och scanner.', 'woo-kustom-export' ),
+			),
+			'ean'                => array(
+				'label' => __( 'EAN / GTIN / Streckkod', 'woo-kustom-export' ),
+				'group' => __( 'Streckkoder & Koder', 'woo-kustom-export' ),
+				'desc'  => __( 'Hämtas från standardfält eller metafält (_ean, barcode etc.).', 'woo-kustom-export' ),
+			),
+
+			// Grupp: Beskrivning & Text
+			'description'        => array(
+				'label' => __( 'Produktbeskrivning', 'woo-kustom-export' ),
+				'group' => __( 'Beskrivning & Text', 'woo-kustom-export' ),
+				'desc'  => __( 'Fullständig beskrivning (rensad från HTML-taggar).', 'woo-kustom-export' ),
+			),
+			'short_description'  => array(
+				'label' => __( 'Kort beskrivning', 'woo-kustom-export' ),
+				'group' => __( 'Beskrivning & Text', 'woo-kustom-export' ),
+				'desc'  => __( 'Kort produktbeskrivning / sammanfattning.', 'woo-kustom-export' ),
+			),
+
+			// Grupp: Kategorier & Taggar
+			'category'           => array(
+				'label' => __( 'Primär kategori', 'woo-kustom-export' ),
+				'group' => __( 'Kategorier & Taggar', 'woo-kustom-export' ),
+				'desc'  => __( 'Produktens första/huvudsakliga varukategori.', 'woo-kustom-export' ),
+			),
+			'category_tree'      => array(
+				'label' => __( 'Produktkategori (Kategoriträd)', 'woo-kustom-export' ),
+				'group' => __( 'Kategorier & Taggar', 'woo-kustom-export' ),
+				'desc'  => __( 'Produktens kategori anpassad för Kustom POS.', 'woo-kustom-export' ),
+			),
+			'categories'         => array(
+				'label' => __( 'Alla kategorier', 'woo-kustom-export' ),
+				'group' => __( 'Kategorier & Taggar', 'woo-kustom-export' ),
+				'desc'  => __( 'Alla tilldelade kategorier, kommaseparerade.', 'woo-kustom-export' ),
+			),
+			'tags'               => array(
+				'label' => __( 'Produkttaggar', 'woo-kustom-export' ),
+				'group' => __( 'Kategorier & Taggar', 'woo-kustom-export' ),
+				'desc'  => __( 'Tilldelade produkttaggar, kommaseparerade.', 'woo-kustom-export' ),
+			),
+
+			// Grupp: Mått & Frakt
+			'weight'             => array(
+				'label' => __( 'Vikt', 'woo-kustom-export' ),
+				'group' => __( 'Mått & Frakt', 'woo-kustom-export' ),
+				'desc'  => __( 'Produktens vikt enligt butikens viktenhet.', 'woo-kustom-export' ),
+			),
+			'length'             => array(
+				'label' => __( 'Längd', 'woo-kustom-export' ),
+				'group' => __( 'Mått & Frakt', 'woo-kustom-export' ),
+				'desc'  => __( 'Produktens längd.', 'woo-kustom-export' ),
+			),
+			'width'              => array(
+				'label' => __( 'Bredd', 'woo-kustom-export' ),
+				'group' => __( 'Mått & Frakt', 'woo-kustom-export' ),
+				'desc'  => __( 'Produktens bredd.', 'woo-kustom-export' ),
+			),
+			'height'             => array(
+				'label' => __( 'Höjd', 'woo-kustom-export' ),
+				'group' => __( 'Mått & Frakt', 'woo-kustom-export' ),
+				'desc'  => __( 'Produktens höjd.', 'woo-kustom-export' ),
+			),
+			'shipping_class'     => array(
+				'label' => __( 'Fraktklass', 'woo-kustom-export' ),
+				'group' => __( 'Mått & Frakt', 'woo-kustom-export' ),
+				'desc'  => __( 'Namn på tilldelad fraktklass.', 'woo-kustom-export' ),
+			),
+
+			// Grupp: Bilder
+			'image_url'          => array(
+				'label' => __( 'Huvudbild (URL)', 'woo-kustom-export' ),
+				'group' => __( 'Bilder & Media', 'woo-kustom-export' ),
+				'desc'  => __( 'Fullständig URL till produktens eller variantens huvudbild.', 'woo-kustom-export' ),
+			),
+			'gallery_images'     => array(
+				'label' => __( 'Galleribilder (URL:er)', 'woo-kustom-export' ),
+				'group' => __( 'Bilder & Media', 'woo-kustom-export' ),
+				'desc'  => __( 'URL:er till produktgalleriets bilder, kommaseparerade.', 'woo-kustom-export' ),
+			),
+		);
+	}
+
+	/**
 	 * Konstruktor.
 	 *
 	 * @param array $settings Exportinställningar.
@@ -47,7 +211,8 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 	public function __construct( $settings = array() ) {
 		parent::__construct( $settings );
 
-		foreach ( array_keys( $this->optional_columns ) as $key ) {
+		$supported = self::get_supported_optional_columns();
+		foreach ( array_keys( $supported ) as $key ) {
 			$this->optional_columns[ $key ] = ! empty( $this->settings['optional_columns'][ $key ] );
 		}
 
@@ -55,22 +220,9 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 			$this->settings['custom_attribute'] = '';
 		}
 
-		$this->settings['custom_attribute'] = $this->sanitize_custom_attribute( $this->settings['custom_attribute'] );
-	}
-
-	/**
-	 * Sanera valt eget attribut: endast kända attributrubriker tillåts.
-	 *
-	 * @param string $label Vald attributrubrik.
-	 * @return string
-	 */
-	protected function sanitize_custom_attribute( $label ) {
-		$label = strtolower( trim( (string) wp_specialchars_decode( $label, ENT_QUOTES ) ) );
-		if ( '' === $label ) {
-			return '';
+		if ( ! isset( $this->settings['custom_attributes'] ) || ! is_array( $this->settings['custom_attributes'] ) ) {
+			$this->settings['custom_attributes'] = array();
 		}
-
-		return in_array( $label, $this->get_available_attributes(), true ) ? $label : '';
 	}
 
 	/**
@@ -80,6 +232,26 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 	 */
 	public function get_filename_prefix() {
 		return 'kustom-products-';
+	}
+
+	/**
+	 * Hämta lista över valda egna attribut (sanerade mot tillgängliga attribut i butiken).
+	 *
+	 * @return string[]
+	 */
+	public function get_selected_attributes() {
+		$selected = array();
+
+		if ( ! empty( $this->settings['custom_attributes'] ) && is_array( $this->settings['custom_attributes'] ) ) {
+			$selected = array_map( 'strval', $this->settings['custom_attributes'] );
+		} elseif ( ! empty( $this->settings['custom_attribute'] ) ) {
+			$selected = array( (string) $this->settings['custom_attribute'] );
+		}
+
+		$selected = array_values( array_unique( array_filter( array_map( 'strtolower', array_map( 'trim', $selected ) ) ) ) );
+
+		$available = $this->get_available_attributes();
+		return array_values( array_intersect( $selected, $available ) );
 	}
 
 	/**
@@ -96,27 +268,14 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 			}
 		}
 
-		$attributes = $this->collect_variation_attributes();
-		$selected   = (string) $this->settings['custom_attribute'];
+		$selected_attributes = $this->get_selected_attributes();
 
-		if ( '' !== $selected ) {
-			$attributes = array_values(
-				array_filter(
-					$attributes,
-					static function ( $label ) use ( $selected ) {
-						return $label !== $selected;
-					}
-				)
-			);
-			$attributes[] = $selected;
-		}
-
-		return array_merge( $columns, $attributes );
+		return array_merge( $columns, $selected_attributes );
 	}
 
 	/**
 	 * Samla alla attributrubriker som finns i katalogen (globala och produktspecifika),
-	 * sorterade alfabetiskt, för dropdown-valet i admin.
+	 * sorterade alfabetiskt.
 	 *
 	 * @return string[]
 	 */
@@ -129,7 +288,7 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 		$attributes = array();
 		$reserved   = array_merge(
 			array( 'product_name', 'price_including_vat', 'vat_rate', 'currency' ),
-			array_keys( $this->optional_columns )
+			array_keys( self::get_supported_optional_columns() )
 		);
 
 		foreach ( $this->get_products_iter() as $product ) {
@@ -151,16 +310,13 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 	}
 
 	/**
-	 * Hitta enkla produkter med flera värden på det valda egna attributet.
+	 * Hitta enkla produkter med flera värden på något av de valda egna attributen.
 	 *
-	 * CSV-formatet har en cell per rad, så endast det första värdet kan
-	 * exporteras för sådana produkter. Returnerar produkter som påverkas.
-	 *
-	 * @return array<int,array{name:string,count:int}> Produkter med fler än ett värde.
+	 * @return array<int,array{name:string,attribute:string,count:int}>
 	 */
 	public function get_multi_value_simple_products() {
-		$selected = (string) $this->settings['custom_attribute'];
-		if ( '' === $selected ) {
+		$selected_list = $this->get_selected_attributes();
+		if ( empty( $selected_list ) ) {
 			return array();
 		}
 
@@ -172,7 +328,8 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 			}
 
 			foreach ( $product->get_attributes() as $taxonomy => $value ) {
-				if ( $selected !== $this->attribute_label( $taxonomy, $product ) ) {
+				$label = $this->attribute_label( $taxonomy, $product );
+				if ( ! in_array( $label, $selected_list, true ) ) {
 					continue;
 				}
 
@@ -183,11 +340,11 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 				$options = $value->get_options();
 				if ( count( $options ) > 1 ) {
 					$affected[] = array(
-						'name'  => $product->get_name(),
-						'count' => count( $options ),
+						'name'      => $product->get_name(),
+						'attribute' => $label,
+						'count'     => count( $options ),
 					);
 				}
-				break;
 			}
 		}
 
@@ -202,40 +359,215 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 	 * @return array
 	 */
 	protected function build_row( $product, $parent ) {
-		$currency = strtoupper( get_woocommerce_currency() );
+		$currency = function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : 'SEK';
+		if ( empty( $currency ) ) {
+			$currency = 'SEK';
+		}
+		$currency = strtoupper( (string) $currency );
+
+		// post_title som produktnamn: använd förälderns namn för varianter eller produktens eget namn för enkla produkter.
+		$product_name = $parent ? $parent->get_name() : $product->get_name();
+		if ( empty( $product_name ) && $parent ) {
+			$product_name = get_the_title( $parent->get_id() );
+		}
+
+		$vat_rate_val = $this->get_vat_rate( $product, $parent );
+		$vat_rate_str = ( (float) $vat_rate_val === (float) (int) $vat_rate_val )
+			? (string) (int) $vat_rate_val
+			: (string) $vat_rate_val;
 
 		$row = array(
-			'product_name'        => $parent->get_name(),
-			'price_including_vat' => $this->get_price_including_vat( $product ),
-			'vat_rate'            => $this->get_vat_rate( $product ),
+			'product_name'        => (string) $product_name,
+			'price_including_vat' => $this->get_price_including_vat( $product, $parent ),
+			'vat_rate'            => $vat_rate_str,
 			'currency'            => $currency,
 		);
 
-		if ( $this->optional_columns['sku'] ) {
-			$row['sku'] = $product->get_sku();
-		}
-
-		if ( $this->optional_columns['category'] ) {
-			$row['category'] = $this->get_primary_category( $parent );
-		}
-
-		if ( $this->optional_columns['ean'] ) {
-			$row['ean'] = $this->get_ean( $product );
-		}
-
-		if ( $this->optional_columns['image_url'] ) {
-			$row['image_url'] = $this->get_image_url( $product, $parent );
-		}
-
-		if ( $this->optional_columns['stock_status'] ) {
-			$row['stock_status'] = 'instock' === $product->get_stock_status() ? 'instock' : 'outofstock';
+		foreach ( $this->optional_columns as $col => $enabled ) {
+			if ( $enabled ) {
+				$row[ $col ] = $this->get_column_value( $col, $product, $parent );
+			}
 		}
 
 		if ( ! $product->is_type( 'variation' ) ) {
-			$row = array_merge( $row, $this->build_custom_attribute_cell( $product, $parent ) );
+			$row = array_merge( $row, $this->build_custom_attributes_cells( $product, $parent, $row ) );
 		}
 
 		return $row;
+	}
+
+	/**
+	 * Formatera angivet prisbelopp inklusive moms.
+	 *
+	 * @param float|string    $price   Prisbelopp.
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten.
+	 * @return string
+	 */
+	protected function format_custom_price_including_vat( $price, $product, $parent = null ) {
+		$raw_float = (float) $price;
+		if ( method_exists( $product, 'is_taxable' ) && ! $product->is_taxable() ) {
+			return number_format( $raw_float, 2, '.', '' );
+		}
+
+		$price_inc = null;
+		if ( function_exists( 'wc_get_price_including_tax' ) ) {
+			$calc = (float) wc_get_price_including_tax( $product, array( 'price' => $raw_float ) );
+			$prices_include_tax = function_exists( 'wc_prices_include_tax' ) ? wc_prices_include_tax() : false;
+			if ( $prices_include_tax || $calc > $raw_float ) {
+				$price_inc = $calc;
+			}
+		}
+
+		if ( null === $price_inc ) {
+			$vat_rate = $this->get_vat_rate( $product, $parent );
+			if ( $vat_rate > 0.0 ) {
+				$price_inc = $raw_float * ( 1.0 + ( $vat_rate / 100.0 ) );
+			} else {
+				$price_inc = $raw_float;
+			}
+		}
+
+		return number_format( (float) $price_inc, 2, '.', '' );
+	}
+
+	/**
+	 * Hämta värde för en valfri kolumn.
+	 *
+	 * @param string     $col     Kolumnnyckel.
+	 * @param WC_Product $product Produkten eller variationen.
+	 * @param WC_Product $parent  Föräldraprodukten.
+	 * @return string
+	 */
+	protected function get_column_value( $col, $product, $parent ) {
+		switch ( $col ) {
+			case 'sku':
+				return (string) $product->get_sku();
+
+			case 'product_id':
+			case 'id':
+				return (string) $product->get_id();
+
+			case 'parent_id':
+				return $product->is_type( 'variation' ) ? (string) $product->get_parent_id() : '';
+
+			case 'parent_sku':
+				return $product->is_type( 'variation' ) ? (string) $parent->get_sku() : '';
+
+			case 'product_type':
+			case 'type':
+				return (string) $product->get_type();
+
+			case 'status':
+				return (string) $product->get_status();
+
+			case 'regular_price':
+				$regular = $product->get_regular_price();
+				if ( '' !== $regular && null !== $regular ) {
+					return $this->format_custom_price_including_vat( $regular, $product, $parent );
+				}
+				return '';
+
+			case 'sale_price':
+				$sale = $product->get_sale_price();
+				if ( '' !== $sale && null !== $sale ) {
+					return $this->format_custom_price_including_vat( $sale, $product, $parent );
+				}
+				return '';
+
+			case 'price_excluding_vat':
+				return $this->get_price_excluding_vat( $product, $parent );
+
+			case 'tax_class':
+				$tax_class = $product->get_tax_class();
+				if ( ( 'parent' === $tax_class || empty( $tax_class ) ) && $parent && $parent !== $product ) {
+					$tax_class = $parent->get_tax_class();
+				}
+				return (string) $tax_class;
+
+			case 'tax_status':
+				$tax_status = $product->get_tax_status();
+				if ( empty( $tax_status ) && $parent ) {
+					$tax_status = $parent->get_tax_status();
+				}
+				return (string) $tax_status;
+
+			case 'stock_quantity':
+				$qty = $product->get_stock_quantity();
+				return null !== $qty ? (string) $qty : '';
+
+			case 'stock_status':
+				return (string) $product->get_stock_status();
+
+			case 'manage_stock':
+				return $product->get_manage_stock() ? 'yes' : 'no';
+
+			case 'ean':
+			case 'gtin':
+				return $this->get_ean( $product );
+
+			case 'description':
+				$desc = $product->is_type( 'variation' ) && $product->get_description()
+					? $product->get_description()
+					: $parent->get_description();
+				return wp_strip_all_tags( (string) $desc );
+
+			case 'short_description':
+				return wp_strip_all_tags( (string) $parent->get_short_description() );
+
+			case 'category':
+			case 'category_tree':
+				return $this->get_primary_category( $parent );
+
+			case 'categories':
+				$terms = wp_get_post_terms( $parent->get_id(), 'product_cat', array( 'fields' => 'names' ) );
+				return ( ! is_wp_error( $terms ) && ! empty( $terms ) ) ? implode( ', ', $terms ) : '';
+
+			case 'tags':
+				$terms = wp_get_post_terms( $parent->get_id(), 'product_tag', array( 'fields' => 'names' ) );
+				return ( ! is_wp_error( $terms ) && ! empty( $terms ) ) ? implode( ', ', $terms ) : '';
+
+			case 'weight':
+				$weight = $product->get_weight();
+				return ( '' !== $weight && null !== $weight ) ? (string) $weight : '';
+
+			case 'length':
+				$length = $product->get_length();
+				return ( '' !== $length && null !== $length ) ? (string) $length : '';
+
+			case 'width':
+				$width = $product->get_width();
+				return ( '' !== $width && null !== $width ) ? (string) $width : '';
+
+			case 'height':
+				$height = $product->get_height();
+				return ( '' !== $height && null !== $height ) ? (string) $height : '';
+
+			case 'shipping_class':
+				$sc_id = $product->get_shipping_class_id();
+				if ( ! $sc_id && $parent ) {
+					$sc_id = $parent->get_shipping_class_id();
+				}
+				$sc = $sc_id ? get_term_by( 'id', $sc_id, 'product_shipping_class' ) : null;
+				return ( $sc && ! is_wp_error( $sc ) ) ? (string) $sc->name : '';
+
+			case 'image_url':
+				return $this->get_image_url( $product, $parent );
+
+			case 'gallery_images':
+				$gallery_ids = $parent ? $parent->get_gallery_image_ids() : array();
+				$urls        = array();
+				foreach ( $gallery_ids as $id ) {
+					$url = wp_get_attachment_image_url( (int) $id, 'full' );
+					if ( $url ) {
+						$urls[] = $url;
+					}
+				}
+				return implode( ', ', $urls );
+
+			default:
+				return '';
+		}
 	}
 
 	/**
@@ -262,41 +594,45 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 				$row[ $label ] = $this->attribute_value( $taxonomy, $value );
 			}
 
-			$row = array_merge( $row, $this->build_custom_attribute_cell( $variation, $product ) );
+			$row = array_merge( $row, $this->build_custom_attributes_cells( $variation, $product, $row ) );
 
 			yield $row;
 		}
 	}
 
 	/**
-	 * Bygg cellvärdet för det valda egna attributet, som alltid ligger som sista kolumn.
+	 * Bygg cellvärden för de valda egna attributen.
 	 *
-	 * För variationer används variationens värde; om variationen saknar värde
-	 * faller vi tillbaka på föräldraproduktens attributvärde.
-	 *
-	 * @param WC_Product $product Produkten/variationen.
-	 * @param WC_Product $parent  Föräldraprodukten.
+	 * @param WC_Product $product      Produkten/variationen.
+	 * @param WC_Product $parent       Föräldraprodukten.
+	 * @param array      $existing_row Befintlig rad (för att inte skriva över redan satta variationsvärden).
 	 * @return array
 	 */
-	protected function build_custom_attribute_cell( $product, $parent ) {
-		$selected = (string) $this->settings['custom_attribute'];
-		if ( '' === $selected ) {
+	protected function build_custom_attributes_cells( $product, $parent, $existing_row = array() ) {
+		$selected_list = $this->get_selected_attributes();
+		if ( empty( $selected_list ) ) {
 			return array();
 		}
 
-		$value = $this->get_attribute_value_by_label( $product, $selected, $parent );
-		if ( '' === $value && $parent && $parent->get_id() !== $product->get_id() ) {
-			$value = $this->get_attribute_value_by_label( $parent, $selected, $parent );
+		$cells = array();
+		foreach ( $selected_list as $selected ) {
+			if ( isset( $existing_row[ $selected ] ) && '' !== $existing_row[ $selected ] ) {
+				continue;
+			}
+
+			$value = $this->get_attribute_value_by_label( $product, $selected, $parent );
+			if ( '' === $value && $parent && $parent->get_id() !== $product->get_id() ) {
+				$value = $this->get_attribute_value_by_label( $parent, $selected, $parent );
+			}
+
+			$cells[ $selected ] = $value;
 		}
 
-		return array( $selected => $value );
+		return $cells;
 	}
 
 	/**
 	 * Hämta en produkts värde för attributet med given rubrik.
-	 *
-	 * Hanterar både variationer (värde är slug-strängar) och enkla/variabla
-	 * produkter (värde är WC_Product_Attribute-objekt).
 	 *
 	 * @param WC_Product $product Produkten/variationen.
 	 * @param string     $label   Efterfrågad attributrubrik.
@@ -304,8 +640,10 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 	 * @return string
 	 */
 	protected function get_attribute_value_by_label( $product, $label, $parent ) {
+		$clean_label = preg_replace( '/^attribute_/', '', $label );
 		foreach ( $product->get_attributes() as $taxonomy => $value ) {
-			if ( $label !== $this->attribute_label( $taxonomy, $parent ) ) {
+			$attr_label = $this->attribute_label( $taxonomy, $parent );
+			if ( $label !== $attr_label && $clean_label !== $attr_label && $label !== 'attribute_' . $attr_label ) {
 				continue;
 			}
 
@@ -323,9 +661,6 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 
 	/**
 	 * Hämta det första attributvärdet ur ett WC_Product_Attribute-objekt.
-	 *
-	 * För taxonomiattribut innehåller get_options() term-ID:n som måste slås
-	 * upp mot termens namn; för lokala attribut är alternativen fritext.
 	 *
 	 * @param WC_Product_Attribute $attribute Attributobjektet.
 	 * @return string

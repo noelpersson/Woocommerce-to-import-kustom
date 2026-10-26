@@ -287,46 +287,238 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 
 	/**
 	 * Pris inklusive moms, punkt som decimaltecken, utan tusentalsavgränsare.
+	 * Använder sale_price om den finns, annars regular_price.
+	 * Säkerställer att priset alltid är inklusive moms.
 	 *
-	 * @param WC_Product $product Produkten eller variationen.
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten (om tillgänglig).
 	 * @return string
 	 */
-	protected function get_price_including_vat( $product ) {
-		$price = wc_get_price_including_tax( $product, array( 'price' => $product->get_price() ) );
-		return number_format( (float) $price, 2, '.', '' );
+	protected function get_price_including_vat( $product, $parent = null ) {
+		$sale_price    = $product->get_sale_price();
+		$regular_price = $product->get_regular_price();
+
+		$raw_price = '';
+		if ( '' !== $sale_price && null !== $sale_price && (float) $sale_price > 0 ) {
+			$raw_price = $sale_price;
+		} elseif ( '' !== $regular_price && null !== $regular_price ) {
+			$raw_price = $regular_price;
+		} else {
+			$raw_price = $product->get_price();
+		}
+
+		if ( '' === $raw_price || null === $raw_price ) {
+			return '0.00';
+		}
+
+		$raw_float = (float) $raw_price;
+
+		// Om produkten inte är momspliktig (tax_status !== 'taxable').
+		if ( method_exists( $product, 'is_taxable' ) && ! $product->is_taxable() ) {
+			return number_format( $raw_float, 2, '.', '' );
+		}
+
+		$price_inc = null;
+
+		// Försök först använda WooCommerces inbyggda skattemotor.
+		if ( function_exists( 'wc_get_price_including_tax' ) ) {
+			$calc = (float) wc_get_price_including_tax( $product, array( 'price' => $raw_float ) );
+			$prices_include_tax = function_exists( 'wc_prices_include_tax' ) ? wc_prices_include_tax() : false;
+			if ( $prices_include_tax || $calc > $raw_float ) {
+				$price_inc = $calc;
+			}
+		}
+
+		// Fallback om wc_get_price_including_tax inte lade på moms (t.ex. vid saknade skatteregler i DB).
+		if ( null === $price_inc ) {
+			$vat_rate = $this->get_vat_rate( $product, $parent );
+			if ( $vat_rate > 0.0 ) {
+				$price_inc = $raw_float * ( 1.0 + ( $vat_rate / 100.0 ) );
+			} else {
+				$price_inc = $raw_float;
+			}
+		}
+
+		return number_format( (float) $price_inc, 2, '.', '' );
 	}
 
 	/**
 	 * Pris exklusive moms, punkt som decimaltecken, utan tusentalsavgränsare.
+	 * Använder sale_price om den finns, annars regular_price.
 	 *
-	 * @param WC_Product $product Produkten eller variationen.
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten (om tillgänglig).
 	 * @return string
 	 */
-	protected function get_price_excluding_vat( $product ) {
-		$price = wc_get_price_excluding_tax( $product, array( 'price' => $product->get_price() ) );
-		return number_format( (float) $price, 2, '.', '' );
+	protected function get_price_excluding_vat( $product, $parent = null ) {
+		$sale_price    = $product->get_sale_price();
+		$regular_price = $product->get_regular_price();
+
+		$raw_price = '';
+		if ( '' !== $sale_price && null !== $sale_price && (float) $sale_price > 0 ) {
+			$raw_price = $sale_price;
+		} elseif ( '' !== $regular_price && null !== $regular_price ) {
+			$raw_price = $regular_price;
+		} else {
+			$raw_price = $product->get_price();
+		}
+
+		if ( '' === $raw_price || null === $raw_price ) {
+			return '0.00';
+		}
+
+		$raw_float = (float) $raw_price;
+
+		if ( method_exists( $product, 'is_taxable' ) && ! $product->is_taxable() ) {
+			return number_format( $raw_float, 2, '.', '' );
+		}
+
+		$price_ex = null;
+		if ( function_exists( 'wc_get_price_excluding_tax' ) ) {
+			$calc = (float) wc_get_price_excluding_tax( $product, array( 'price' => $raw_float ) );
+			$prices_include_tax = function_exists( 'wc_prices_include_tax' ) ? wc_prices_include_tax() : false;
+			if ( ! $prices_include_tax || $calc < $raw_float ) {
+				$price_ex = $calc;
+			}
+		}
+
+		if ( null === $price_ex ) {
+			$vat_rate = $this->get_vat_rate( $product, $parent );
+			if ( $vat_rate > 0.0 ) {
+				$price_ex = $raw_float / ( 1.0 + ( $vat_rate / 100.0 ) );
+			} else {
+				$price_ex = $raw_float;
+			}
+		}
+
+		return number_format( (float) $price_ex, 2, '.', '' );
 	}
 
 	/**
-	 * Hämta momssats i procent utifrån produktens tax class, annars butikens standardmomssats.
+	 * Hämta momssats i procent utifrån produktens skattestatus (Tax status) och skatteklass (Tax class).
+	 * Kontrollerar skattestatus (taxable/none), skatteklass, variationer som ärver förälderns skatteklass,
+	 * prisskillnad via WooCommerces skattemotor, WC_Tax-satser för butikens basland,
+	 * samt mappning av svenska momsklasser (standard = 25%, reduced = 12%, super-reduced = 6%, zero = 0%).
 	 *
-	 * @param WC_Product $product Produkten eller variationen.
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten (om tillgänglig).
 	 * @return float
 	 */
-	protected function get_vat_rate( $product ) {
-		$tax_class = $product->get_tax_class();
-		$rates     = $tax_class ? WC_Tax::get_rates_for_tax_class( $tax_class ) : WC_Tax::get_rates_for_tax_class( '' );
-
-		if ( empty( $rates ) && '' !== $tax_class ) {
-			$rates = WC_Tax::get_rates_for_tax_class( '' );
+	protected function get_vat_rate( $product, $parent = null ) {
+		// 1. Kontrollera skattestatus (Tax status).
+		// Om produkten inte är skattepliktig (tax_status === 'none' eller 'shipping'), returnera 0.
+		if ( method_exists( $product, 'is_taxable' ) && ! $product->is_taxable() ) {
+			return 0.0;
+		}
+		if ( method_exists( $product, 'get_tax_status' ) && 'taxable' !== $product->get_tax_status() ) {
+			return 0.0;
 		}
 
-		if ( ! empty( $rates ) ) {
-			$rate = reset( $rates );
-			return (float) $rate->tax_rate;
+		$rate = null;
+
+		// 2. Beräkna direkt från produktens priser via WooCommerces skattemotor.
+		// Detta tar hänsyn till butikens aktiva skatteregler, zoner och skattesatser.
+		if ( function_exists( 'wc_get_price_including_tax' ) && function_exists( 'wc_get_price_excluding_tax' ) ) {
+			$dummy_price = 1000.0;
+			$price_ex    = (float) wc_get_price_excluding_tax( $product, array( 'price' => $dummy_price ) );
+			$price_inc   = (float) wc_get_price_including_tax( $product, array( 'price' => $dummy_price ) );
+
+			if ( $price_ex > 0.0 && $price_inc > $price_ex ) {
+				$rate = round( ( ( $price_inc - $price_ex ) / $price_ex ) * 100.0, 2 );
+			}
 		}
 
-		return (float) apply_filters( 'woo_kustom_export_default_vat_rate', 0.0, $product );
+		// 3. Om beräkningen inte gav utslag, kontrollera skatteklasser via WC_Tax.
+		if ( null === $rate || 0.0 === (float) $rate ) {
+			$tax_class = $product->get_tax_class();
+			if ( ( 'parent' === $tax_class || empty( $tax_class ) ) && $parent && $parent !== $product ) {
+				$tax_class = $parent->get_tax_class();
+			}
+
+			// Normalisera om tax_class är satt till strängen "standard" -> standardklass är tom sträng i WooCommerce.
+			$query_class = ( 'standard' === strtolower( (string) $tax_class ) ) ? '' : $tax_class;
+
+			if ( class_exists( 'WC_Tax' ) ) {
+				// Hämta satser för butikens basplats.
+				$rates = WC_Tax::get_rates( $query_class );
+				if ( ! empty( $rates ) ) {
+					$first = reset( $rates );
+					if ( isset( $first['rate'] ) && (float) $first['rate'] > 0 ) {
+						$rate = (float) $first['rate'];
+					}
+				}
+
+				if ( null === $rate || 0.0 === (float) $rate ) {
+					$db_rates = WC_Tax::get_rates_for_tax_class( $query_class );
+					if ( empty( $db_rates ) && '' !== $query_class ) {
+						$db_rates = WC_Tax::get_rates_for_tax_class( '' );
+					}
+					if ( ! empty( $db_rates ) ) {
+						$first_obj = reset( $db_rates );
+						if ( isset( $first_obj->tax_rate ) && (float) $first_obj->tax_rate > 0 ) {
+							$rate = (float) $first_obj->tax_rate;
+						}
+					}
+				}
+
+				if ( ( null === $rate || 0.0 === (float) $rate ) && method_exists( 'WC_Tax', 'get_base_tax_rates' ) ) {
+					$base_rates = WC_Tax::get_base_tax_rates( $query_class );
+					if ( ! empty( $base_rates ) ) {
+						$first_base = reset( $base_rates );
+						if ( isset( $first_base['rate'] ) && (float) $first_base['rate'] > 0 ) {
+							$rate = (float) $first_base['rate'];
+						}
+					}
+				}
+			}
+		}
+
+		// 4. Mappning baserad på skatteklassens namn/slug (Tax class mappad mot momssats).
+		if ( null === $rate || 0.0 === (float) $rate ) {
+			$tax_class = strtolower( trim( (string) $product->get_tax_class() ) );
+			if ( ( 'parent' === $tax_class || empty( $tax_class ) ) && $parent && $parent !== $product ) {
+				$tax_class = strtolower( trim( (string) $parent->get_tax_class() ) );
+			}
+
+			if ( in_array( $tax_class, array( 'zero-rate', 'zero', '0', 'noll', 'nollmoms' ), true ) ) {
+				$rate = 0.0;
+			} elseif ( in_array( $tax_class, array( 'reduced-rate', 'reducerad', '12', 'moms-12', 'livsmedel', 'food' ), true ) ) {
+				$rate = 12.0;
+			} elseif ( in_array( $tax_class, array( 'super-reduced-rate', 'super-reduced', '6', 'moms-6', 'böcker', 'bocker', 'bokmoms', 'books' ), true ) ) {
+				$rate = 6.0;
+			} elseif ( preg_match( '/(\d+(?:[\.,]\d+)?)/', $tax_class, $matches ) ) {
+				$extracted = (float) str_replace( ',', '.', $matches[1] );
+				if ( $extracted > 0 ) {
+					$rate = $extracted;
+				}
+			}
+		}
+
+		// 5. Fallback för svenska butiker / SEK: standardmoms blir oftast 25% i Sverige.
+		if ( null === $rate || 0.0 === (float) $rate ) {
+			$tax_class = strtolower( trim( (string) $product->get_tax_class() ) );
+			if ( 'zero-rate' !== $tax_class && '0' !== $tax_class ) {
+				$currency = function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : 'SEK';
+				$country  = '';
+				if ( function_exists( 'WC' ) && WC()->countries ) {
+					$country = WC()->countries->get_base_country();
+				}
+				if ( empty( $country ) ) {
+					$country = get_option( 'woocommerce_default_country' );
+				}
+
+				if ( 'SEK' === strtoupper( (string) $currency ) || empty( $country ) || 0 === strpos( (string) $country, 'SE' ) ) {
+					$rate = 25.0;
+				} else {
+					$rate = 0.0;
+				}
+			} else {
+				$rate = 0.0;
+			}
+		}
+
+		$rate = (float) apply_filters( 'woo_kustom_export_default_vat_rate', $rate, $product, $parent );
+		return (float) apply_filters( 'woo_kustom_export_vat_rate', $rate, $product, $parent );
 	}
 
 	/**
@@ -338,7 +530,7 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 	protected function get_ean( $product ) {
 		$keys = (array) apply_filters(
 			'woo_kustom_export_ean_meta_keys',
-			array( '_ean', 'ean', '_gtin', 'gtin', '_global_unique_id', 'global_unique_id' ),
+			array( '_ean', 'ean', '_gtin', 'gtin', '_global_unique_id', 'global_unique_id', '_barcode', 'barcode' ),
 			$product
 		);
 
@@ -442,10 +634,14 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 	/**
 	 * Skydda cellvärde mot CSV-injection genom att prefixa farliga inledande tecken.
 	 *
-	 * @param string $value Cellvärde.
-	 * @return string
+	 * @param mixed $value Cellvärde.
+	 * @return mixed
 	 */
 	protected function sanitize_cell( $value ) {
+		if ( ! is_string( $value ) ) {
+			return $value;
+		}
+
 		if ( '' !== $value && in_array( $value[0], array( '=', '+', '-', '@' ), true ) ) {
 			return "'" . $value;
 		}
