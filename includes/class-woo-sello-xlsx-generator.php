@@ -1,6 +1,6 @@
 <?php
 /**
- * XLSX-generator för Sello Excel-importformat.
+ * XLSX-generator för Sellos importformat anpassat för Tradera.
  *
  * Återanvänder samma kolumnmappning och raddata som CSV-versionen
  * (class-woo-sello-csv-generator.php) men skriver en äkta .xlsx-fil
@@ -41,7 +41,7 @@ class WOO_Sello_XLSX_Generator extends WOO_Sello_CSV_Generator {
 		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
 
 		$writer = new XLSXWriter();
-		$writer->setTitle( __( 'Sello produktexport', 'woo-kustom-export' ) );
+		$writer->setTitle( __( 'Sello Tradera produktexport', 'woo-kustom-export' ) );
 		$writer->setAuthor( get_bloginfo( 'name' ) );
 
 		$columns = $this->collect_columns();
@@ -58,5 +58,49 @@ class WOO_Sello_XLSX_Generator extends WOO_Sello_CSV_Generator {
 
 		$writer->writeToStdOut();
 		exit;
+	}
+
+	/**
+	 * Skriver XLSX-exporten till en fil på disken och returnerar antal rader och filstorlek.
+	 *
+	 * @param string $filepath Fullständig sökväg till destinationsfilen.
+	 * @return array{rows: int, size: int}|false Statistik eller false vid fel.
+	 */
+	public function write_to_file( $filepath ) {
+		if ( ! class_exists( 'ZipArchive' ) ) {
+			return false;
+		}
+
+		$writer = new XLSXWriter();
+		$writer->setTitle( __( 'Sello Tradera produktexport', 'woo-kustom-export' ) );
+		$writer->setAuthor( get_bloginfo( 'name' ) );
+
+		$columns = $this->collect_columns();
+		$types   = array_fill( 0, count( $columns ), 'string' );
+
+		$writer->writeSheetHeader( 'Products', array_combine( $columns, $types ), array( 'freeze_rows' => true ) );
+
+		$rows_count = 0;
+		foreach ( $this->get_rows_iter() as $row ) {
+			$writer->writeSheetRow(
+				'Products',
+				array_map( array( $this, 'sanitize_cell' ), array_values( $row ) )
+			);
+			$rows_count++;
+		}
+
+		$writer->writeToFile( $filepath );
+
+		return array(
+			'rows' => $rows_count,
+			'size' => file_exists( $filepath ) ? filesize( $filepath ) : 0,
+		);
+	}
+
+	/**
+	 * Exekvera exporten och strömma Excel-filen (alias för stream_xlsx, anropas bl.a. via WP-CLI).
+	 */
+	public function generate() {
+		$this->stream_xlsx();
 	}
 }

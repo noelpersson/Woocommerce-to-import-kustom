@@ -114,6 +114,9 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 			wp_die( esc_html__( 'Kunde inte öppna utdataström för CSV-exporten.', 'woo-kustom-export' ) );
 		}
 
+		// UTF-8 BOM för att garantera korrekt teckenkodning (Å, Ä, Ö) i bl.a. Excel.
+		fwrite( $out, "\xEF\xBB\xBF" );
+
 		$this->write_row( $out, $this->collect_columns() );
 
 		foreach ( $this->get_rows_iter() as $row ) {
@@ -122,6 +125,44 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 
 		fclose( $out );
 		exit;
+	}
+
+	/**
+	 * Skriver CSV-exporten till en fil på disken och returnerar antal rader och filstorlek.
+	 *
+	 * @param string $filepath Fullständig sökväg till destinationsfilen.
+	 * @return array{rows: int, size: int}|false Statistik eller false vid fel.
+	 */
+	public function write_to_file( $filepath ) {
+		$out = fopen( $filepath, 'wb' );
+		if ( ! $out ) {
+			return false;
+		}
+
+		// UTF-8 BOM för att garantera korrekt teckenkodning (Å, Ä, Ö) i bl.a. Excel.
+		fwrite( $out, "\xEF\xBB\xBF" );
+
+		$this->write_row( $out, $this->collect_columns() );
+
+		$rows_count = 0;
+		foreach ( $this->get_rows_iter() as $row ) {
+			$this->write_row( $out, $row );
+			$rows_count++;
+		}
+
+		fclose( $out );
+
+		return array(
+			'rows' => $rows_count,
+			'size' => file_exists( $filepath ) ? filesize( $filepath ) : 0,
+		);
+	}
+
+	/**
+	 * Exekvera exporten och strömma filen (alias för stream_csv, anropas bl.a. via WP-CLI).
+	 */
+	public function generate() {
+		$this->stream_csv();
 	}
 
 	/**

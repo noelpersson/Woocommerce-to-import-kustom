@@ -1,11 +1,14 @@
 <?php
 /**
- * CSV-generator för Sellos Excel-importformat.
+ * CSV-generator för Sellos importformat anpassat för Tradera butiksförsäljning.
  *
- * Genererar CSV-rader med Sellos standardkolumnnamn (Sku, Property EAN,
- * Property GTIN, Standard name sv, Price, Purchase price, Calculate m.fl.) som kan
- * öppnas i Excel eller importeras direkt till Sello. Raderna strömmas
- * direkt till php://output för att minimera minnesanvändning.
+ * Genererar CSV-rader med Sellos officiella kolumnnamn för Tradera fastprisbutik:
+ * Sku, Standard name sv, Standard description sv, Tradera price store, Purchase price,
+ * Quantity, Tax, Weight, Images, Brand, Group sku, Group type.
+ *
+ * Varje enkel produkt och varje produktvariation exporteras som en egen rad.
+ * Priser mappas till Tradera price store som heltal utan valuta (ex. 495), och
+ * Price samt Calculate utelämnas för att undvika Sellos automatiska prisberäkning.
  *
  * @package Woo_Kustom_Export
  */
@@ -15,7 +18,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Klass WOO_Sello_CSV_Generator
  *
- * Hämtar produkter via WooCommerce API:er och genererar CSV-rader i Sellos format.
+ * Hämtar produkter via WooCommerce API:er och genererar CSV-rader i Sellos Tradera-format.
  */
 class WOO_Sello_CSV_Generator {
 
@@ -50,26 +53,24 @@ class WOO_Sello_CSV_Generator {
 			'include_drafts'     => 0,
 			'include_private'    => 0,
 			'include_outofstock' => 0,
+			'sello_columns'      => array(),
 		);
 
 		$this->settings = wp_parse_args( (array) $settings, $defaults );
 	}
 
 	/**
-	 * Kolumnrubriker i Sellos format.
+	 * Samtliga 12 tillgängliga standardkolumner för Sello/Tradera.
 	 *
 	 * @return string[]
 	 */
-	public function collect_columns() {
+	public static function get_all_columns_list() {
 		return array(
 			'Sku',
-			'Property EAN',
-			'Property GTIN',
 			'Standard name sv',
 			'Standard description sv',
-			'Price',
+			'Tradera price store',
 			'Purchase price',
-			'Calculate',
 			'Quantity',
 			'Tax',
 			'Weight',
@@ -81,7 +82,116 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
-	 * Produktstatistik (antal produktfamiljer och antal variationsrader).
+	 * Metadata och etiketter för valbara Sello-kolumner.
+	 *
+	 * @return array<string,array{label:string,desc:string,code:string,required:bool}>
+	 */
+	public static function get_supported_columns_meta() {
+		return array(
+			'Sku'                     => array(
+				'label'    => __( 'Artikelnummer', 'woo-kustom-export' ),
+				'desc'     => __( 'Unikt artikelnummer (SKU). Rekommenderas för alla artiklar.', 'woo-kustom-export' ),
+				'code'     => 'Sku',
+				'required' => true,
+			),
+			'Standard name sv'        => array(
+				'label'    => __( 'Produktnamn', 'woo-kustom-export' ),
+				'desc'     => __( 'Produktnamn på svenska för butik och marknadsplats.', 'woo-kustom-export' ),
+				'code'     => 'Standard name sv',
+				'required' => false,
+			),
+			'Standard description sv' => array(
+				'label'    => __( 'Produktbeskrivning', 'woo-kustom-export' ),
+				'desc'     => __( 'Ren textbeskrivning utan HTML-taggar.', 'woo-kustom-export' ),
+				'code'     => 'Standard description sv',
+				'required' => false,
+			),
+			'Tradera price store'     => array(
+				'label'    => __( 'Tradera butikspris', 'woo-kustom-export' ),
+				'desc'     => __( 'Fast försäljningspris i heltal utan valuta.', 'woo-kustom-export' ),
+				'code'     => 'Tradera price store',
+				'required' => false,
+			),
+			'Purchase price'          => array(
+				'label'    => __( 'Inköpspris', 'woo-kustom-export' ),
+				'desc'     => __( 'Inköpspris/kalkylpris om angivet i WooCommerce.', 'woo-kustom-export' ),
+				'code'     => 'Purchase price',
+				'required' => false,
+			),
+			'Quantity'                => array(
+				'label'    => __( 'Lagersaldo', 'woo-kustom-export' ),
+				'desc'     => __( 'Aktuellt lagersaldo som heltal.', 'woo-kustom-export' ),
+				'code'     => 'Quantity',
+				'required' => false,
+			),
+			'Tax'                     => array(
+				'label'    => __( 'Momssats', 'woo-kustom-export' ),
+				'desc'     => __( 'Momssats i procent som heltal (t.ex. 25).', 'woo-kustom-export' ),
+				'code'     => 'Tax',
+				'required' => false,
+			),
+			'Weight'                  => array(
+				'label'    => __( 'Vikt', 'woo-kustom-export' ),
+				'desc'     => __( 'Produktens vikt konverterad till gram.', 'woo-kustom-export' ),
+				'code'     => 'Weight',
+				'required' => false,
+			),
+			'Images'                  => array(
+				'label'    => __( 'Produktbilder', 'woo-kustom-export' ),
+				'desc'     => __( 'Fullständiga https:// bild-URL:er separerade med komma.', 'woo-kustom-export' ),
+				'code'     => 'Images',
+				'required' => false,
+			),
+			'Brand'                   => array(
+				'label'    => __( 'Varumärke', 'woo-kustom-export' ),
+				'desc'     => __( 'Varumärke hämtat från taxonomi pa_brand eller attribut.', 'woo-kustom-export' ),
+				'code'     => 'Brand',
+				'required' => false,
+			),
+			'Group sku'               => array(
+				'label'    => __( 'Grupp-SKU', 'woo-kustom-export' ),
+				'desc'     => __( 'Huvudproduktens SKU för variantgruppering.', 'woo-kustom-export' ),
+				'code'     => 'Group sku',
+				'required' => false,
+			),
+			'Group type'              => array(
+				'label'    => __( 'Grupptyp', 'woo-kustom-export' ),
+				'desc'     => __( 'Variantdimension (color, size, model).', 'woo-kustom-export' ),
+				'code'     => 'Group type',
+				'required' => false,
+			),
+		);
+	}
+
+	/**
+	 * Kolumnrubriker i Sellos format för Tradera butiksobjekt.
+	 *
+	 * Som standard är samtliga 12 kolumner aktiva. Om användaren har sparat
+	 * specifika kolumnval filtreras kolumnerna utifrån inställningarna.
+	 *
+	 * @return string[]
+	 */
+	public function collect_columns() {
+		$all_columns = self::get_all_columns_list();
+
+		// Om inga specifika kolumnval har sparats är alla 12 kolumner ibockade som standard
+		if ( ! isset( $this->settings['sello_columns'] ) || ! is_array( $this->settings['sello_columns'] ) || empty( $this->settings['sello_columns'] ) ) {
+			return $all_columns;
+		}
+
+		$selected = array();
+		foreach ( $all_columns as $col ) {
+			if ( ! empty( $this->settings['sello_columns'][ $col ] ) ) {
+				$selected[] = $col;
+			}
+		}
+
+		// Fallback om användaren avmarkerat precis allt: behåll Sku
+		return ! empty( $selected ) ? $selected : array( 'Sku' );
+	}
+
+	/**
+	 * Produktstatistik (antal enkla produkter och antal variationsrader).
 	 *
 	 * @return array{products:int,variations:int}
 	 */
@@ -118,7 +228,7 @@ class WOO_Sello_CSV_Generator {
 	 * @return string
 	 */
 	public function get_filename_prefix() {
-		return 'sello-products-';
+		return 'sello-tradera-products-';
 	}
 
 	/**
@@ -132,6 +242,7 @@ class WOO_Sello_CSV_Generator {
 
 	/**
 	 * Generera CSV-strömmen och skicka den till webbläsaren som nedladdning.
+	 * Använder UTF-8 med BOM och komma som avgränsare.
 	 */
 	public function stream_csv() {
 		$filename = $this->get_filename_prefix() . gmdate( 'Y-m-d-Hi' ) . '.' . $this->get_filename_extension();
@@ -145,11 +256,52 @@ class WOO_Sello_CSV_Generator {
 			wp_die( esc_html__( 'Kunde inte öppna utdataström för CSV-exporten.', 'woo-kustom-export' ) );
 		}
 
+		// UTF-8 BOM för att garantera korrekt teckenkodning (Å, Ä, Ö) i Excel och andra kalkylprogram.
+		fwrite( $out, "\xEF\xBB\xBF" );
+
 		$this->write_row( $out, $this->collect_columns() );
 		$this->stream_rows( $out );
 
 		fclose( $out );
 		exit;
+	}
+
+	/**
+	 * Skriver CSV-exporten till en fil på disken och returnerar antal rader och filstorlek.
+	 *
+	 * @param string $filepath Fullständig sökväg till destinationsfilen.
+	 * @return array{rows: int, size: int}|false Statistik eller false vid fel.
+	 */
+	public function write_to_file( $filepath ) {
+		$out = fopen( $filepath, 'wb' );
+		if ( ! $out ) {
+			return false;
+		}
+
+		// UTF-8 BOM för att garantera korrekt teckenkodning (Å, Ä, Ö) i Excel och andra kalkylprogram.
+		fwrite( $out, "\xEF\xBB\xBF" );
+
+		$this->write_row( $out, $this->collect_columns() );
+
+		$rows_count = 0;
+		foreach ( $this->get_rows_iter() as $row ) {
+			$this->write_row( $out, $row );
+			$rows_count++;
+		}
+
+		fclose( $out );
+
+		return array(
+			'rows' => $rows_count,
+			'size' => file_exists( $filepath ) ? filesize( $filepath ) : 0,
+		);
+	}
+
+	/**
+	 * Exekvera exporten och strömma filen (alias för stream_csv, anropas bl.a. via WP-CLI).
+	 */
+	public function generate() {
+		$this->stream_csv();
 	}
 
 	/**
@@ -166,7 +318,7 @@ class WOO_Sello_CSV_Generator {
 	/**
 	 * Iterera färdiga rader (rubrikraden exkluderad) som associerade arrayer
 	 * med samma nycklar som collect_columns(). En generator håller
-	 * minnesanvändningen låg eftersom bara en produktfamilj finns i minnet åt gången.
+	 * minnesanvändningen minimal eftersom enbart en produktfamilj bearbetas åt gången.
 	 *
 	 * @return iterable<array>
 	 */
@@ -185,10 +337,122 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
+	 * Hämta de första raderna för förhandsgranskning i adminpanelen.
+	 *
+	 * @param int $limit Antal rader att returnera (standard: 5).
+	 * @return array[] Lista med associerade rader.
+	 */
+	public function get_preview_rows( $limit = 5 ) {
+		$rows = array();
+		foreach ( $this->get_rows_iter() as $row ) {
+			$rows[] = $row;
+			if ( count( $rows ) >= $limit ) {
+				break;
+			}
+		}
+		return $rows;
+	}
+
+	/**
+	 * Identifiera eventuella produkter eller variationer som saknar SKU eller pris för Tradera.
+	 *
+	 * @param int $limit Max antal avvikelser att samla per typ.
+	 * @return array{missing_sku:array,missing_price:array,total_checked:int}
+	 */
+	public function get_validation_issues( $limit = 50 ) {
+		$missing_sku   = array();
+		$missing_price = array();
+		$total_checked = 0;
+
+		foreach ( $this->get_products_iter() as $product ) {
+			if ( $product->is_type( 'variable' ) ) {
+				$parent_name = $product->get_name();
+				foreach ( $product->get_children() as $variation_id ) {
+					$variation = wc_get_product( $variation_id );
+					if ( ! $variation || ! $variation->exists() || ! $this->include_product( $variation ) ) {
+						continue;
+					}
+
+					$total_checked++;
+					$sku   = trim( (string) $variation->get_sku() );
+					$price = $variation->get_price();
+					if ( '' === $price || null === $price ) {
+						$price = $variation->get_regular_price();
+					}
+
+					$name = $variation->get_formatted_name();
+					if ( empty( $name ) ) {
+						$name = $parent_name . ' (#' . $variation->get_id() . ')';
+					}
+
+					if ( '' === $sku && count( $missing_sku ) < $limit ) {
+						$missing_sku[] = array(
+							'id'          => $variation->get_id(),
+							'name'        => $name,
+							'type'        => __( 'Variation', 'woo-kustom-export' ),
+							'parent_id'   => $product->get_id(),
+							'parent_name' => $parent_name,
+							'edit_url'    => get_edit_post_link( $product->get_id() ),
+						);
+					}
+
+					if ( ( '' === $price || null === $price || (float) $price <= 0 ) && count( $missing_price ) < $limit ) {
+						$missing_price[] = array(
+							'id'          => $variation->get_id(),
+							'sku'         => $sku ? $sku : $this->get_sku( $variation, $product ),
+							'name'        => $name,
+							'type'        => __( 'Variation', 'woo-kustom-export' ),
+							'parent_id'   => $product->get_id(),
+							'parent_name' => $parent_name,
+							'edit_url'    => get_edit_post_link( $product->get_id() ),
+						);
+					}
+				}
+			} elseif ( $this->include_product( $product ) ) {
+				$total_checked++;
+				$sku   = trim( (string) $product->get_sku() );
+				$price = $product->get_price();
+				if ( '' === $price || null === $price ) {
+					$price = $product->get_regular_price();
+				}
+
+				if ( '' === $sku && count( $missing_sku ) < $limit ) {
+					$missing_sku[] = array(
+						'id'       => $product->get_id(),
+						'name'     => $product->get_name(),
+						'type'     => __( 'Enkel produkt', 'woo-kustom-export' ),
+						'edit_url' => get_edit_post_link( $product->get_id() ),
+					);
+				}
+
+				if ( ( '' === $price || null === $price || (float) $price <= 0 ) && count( $missing_price ) < $limit ) {
+					$missing_price[] = array(
+						'id'       => $product->get_id(),
+						'sku'      => $sku ? $sku : (string) $product->get_id(),
+						'name'     => $product->get_name(),
+						'type'     => __( 'Enkel produkt', 'woo-kustom-export' ),
+						'edit_url' => get_edit_post_link( $product->get_id() ),
+					);
+				}
+			}
+		}
+
+		return array(
+			'missing_sku'   => $missing_sku,
+			'missing_price' => $missing_price,
+			'total_checked' => $total_checked,
+		);
+	}
+
+	/**
 	 * Iterera variationsrader för en variabel produkt.
 	 *
-	 * Varianter med ett attribut som matchar Sellos grupptyper (color, size,
-	 * model) grupperas via Group sku och Group type.
+	 * - Skapar en rad per variation.
+	 * - Varje variation får ett unikt SKU.
+	 * - Alla variationer som tillhör samma huvudprodukt får samma värde i Group sku.
+	 * - Group type anger grupperingstyp (color, size, model).
+	 * - Huvudprodukten exporteras normalt inte som egen rad (och om den skulle göra
+	 *   det får den inget värde i Tradera price store om den inte säljs separat).
 	 *
 	 * @param WC_Product $product  Föräldraprodukten.
 	 * @param array      $template Radmall med rubrikens kolumnordning.
@@ -197,6 +461,19 @@ class WOO_Sello_CSV_Generator {
 	protected function get_variable_rows_iter( $product, $template ) {
 		$parent_sku = $this->get_sku( $product, $product );
 		$group_type = $this->get_group_type( $product );
+
+		// Om filter uttryckligen aktiverar huvudprodukten som egen rad:
+		$include_parent = (bool) apply_filters( 'woo_kustom_sello_include_parent_row', false, $product );
+		if ( $include_parent && $this->include_product( $product ) ) {
+			$parent_row = array_merge( $template, $this->build_base_row( $product, $product ) );
+			// Huvudprodukten ska inte få något värde i Tradera price store om den själv inte ska säljas separat
+			$parent_row['Tradera price store'] = '';
+			if ( $parent_sku && $group_type ) {
+				$parent_row['Group sku']  = $parent_sku;
+				$parent_row['Group type'] = $group_type;
+			}
+			yield $parent_row;
+		}
 
 		foreach ( $product->get_children() as $variation_id ) {
 			$variation = wc_get_product( $variation_id );
@@ -216,18 +493,53 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
-	 * Avgör grupptyp för en variabel produkt: color, size eller model om något
-	 * av produktens variationsattribut matchar, annars tom sträng.
+	 * Avgör grupptyp för en variabel produkt.
+	 *
+	 * Sello accepterar följande 3 grupptyper för varianter:
+	 * - 'color' (färg)
+	 * - 'size' (storlek)
+	 * - 'model' (modell / utförande)
+	 *
+	 * Metoden mappar automatiskt svenska attributnamn (Storlek, Färg, Modell)
+	 * samt deras engelska motsvarigheter.
 	 *
 	 * @param WC_Product $product Föräldraprodukten.
 	 * @return string
 	 */
 	protected function get_group_type( $product ) {
-		foreach ( $product->get_variation_attributes() as $taxonomy => $values ) {
+		$var_attributes = $product->get_variation_attributes();
+
+		foreach ( $var_attributes as $taxonomy => $values ) {
 			$label = strtolower( trim( $this->attribute_name( $taxonomy, $product ) ) );
+
+			// Direkt matchning mot Sellos standardtyper
 			if ( in_array( $label, $this->group_types, true ) ) {
 				return $label;
 			}
+
+			// Svenska synonymer och mönster för storlek
+			if ( in_array( $label, array( 'storlek', 'storlekar', 'stlk', 'size', 'sizes', 'skostorlek', 'klädstorlek' ), true )
+				|| false !== strpos( $label, 'storlek' ) || false !== strpos( $label, 'size' ) ) {
+				return 'size';
+			}
+
+			// Svenska synonymer och mönster för färg
+			if ( in_array( $label, array( 'färg', 'farg', 'färger', 'farger', 'color', 'colour', 'colors', 'kulör', 'kulor' ), true )
+				|| false !== strpos( $label, 'färg' ) || false !== strpos( $label, 'farg' ) || false !== strpos( $label, 'color' ) ) {
+				return 'color';
+			}
+
+			// Svenska synonymer och mönster för modell/utförande
+			if ( in_array( $label, array( 'modell', 'modeller', 'model', 'models', 'utförande', 'typ', 'variant' ), true )
+				|| false !== strpos( $label, 'modell' ) || false !== strpos( $label, 'model' ) ) {
+				return 'model';
+			}
+		}
+
+		// Om det finns variationsattribut men ingen passade ovanstående mönster,
+		// använd 'model' som standard så att Sello kan gruppera variationerna.
+		if ( ! empty( $var_attributes ) ) {
+			return 'model';
 		}
 
 		return '';
@@ -261,37 +573,27 @@ class WOO_Sello_CSV_Generator {
 	 * @return array
 	 */
 	protected function build_base_row( $product, $parent ) {
-		$ean  = $this->get_ean( $product, $parent );
-		$gtin = $this->get_gtin( $product, $parent );
-
-		if ( '' === $ean && '' !== $gtin ) {
-			$ean = $gtin;
-		} elseif ( '' === $gtin && '' !== $ean ) {
-			$gtin = $ean;
-		}
-
-		$price = $this->get_price_excluding_vat( $product );
+		$is_parent_variable = ( $product === $parent && $product->is_type( 'variable' ) );
 
 		return array(
 			'Sku'                     => $this->get_sku( $product, $parent ),
-			'Property EAN'            => $ean,
-			'Property GTIN'           => $gtin,
 			'Standard name sv'        => $parent->get_name(),
-			'Standard description sv' => $this->get_description( $parent ),
-			'Price'                   => $price,
+			'Standard description sv' => $this->get_clean_description( $product, $parent ),
+			'Tradera price store'     => $is_parent_variable ? '' : $this->get_tradera_price_store( $product, $parent ),
 			'Purchase price'          => $this->get_purchase_price( $product, $parent ),
-			'Calculate'               => $this->get_calculate( $product, $parent, $price ),
 			'Quantity'                => $this->get_quantity( $product ),
 			'Tax'                     => $this->get_tax_rate( $product, $parent ),
 			'Weight'                  => $this->get_weight_grams( $product, $parent ),
 			'Images'                  => $this->get_images( $product, $parent ),
 			'Brand'                   => $this->get_brand( $parent ),
+			'Group sku'               => '',
+			'Group type'              => '',
 		);
 	}
 
 	/**
 	 * Hämta SKU för produkt eller variation med robust fallback.
-	 * Om SKU saknas i WooCommerce används produktens post-ID eller parent-sku kombination.
+	 * Varje variation garanteras ett unikt SKU.
 	 *
 	 * @param WC_Product      $product Produkten eller variationen.
 	 * @param WC_Product|null $parent  Föräldraprodukten.
@@ -311,7 +613,7 @@ class WOO_Sello_CSV_Generator {
 				if ( '' !== $parent_sku ) {
 					$sku = $parent_sku . '-' . $product->get_id();
 				} else {
-					$sku = (string) $product->get_id();
+					$sku = 'VAR-' . $product->get_id();
 				}
 			} else {
 				$sku = (string) $product->get_id();
@@ -322,46 +624,50 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
-	 * Försäljningspris exklusive moms, avrundat till 2 decimaler med punkt.
+	 * Tradera fast butikspris (Tradera price store) som heltal utan valuta, t.ex. "495".
 	 *
-	 * @param WC_Product $product Produkten eller variationen.
-	 * @return string
+	 * - Hämtar WooCommerce regular_price eller variationens aktiva pris.
+	 * - Formaterar alltid som heltal utan decimaler eller valutasymboler.
+	 * - Huvudprodukten (förälder till varianter) ges inget pris om den inte säljs separat.
+	 * - Lämpar sig direkt för fastprislistning i Tradera-butik utan Sellos Calculate.
+	 *
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten.
+	 * @return string Heltal som sträng, t.ex. "495", eller tom sträng om pris saknas.
 	 */
-	protected function get_price_excluding_vat( $product ) {
+	protected function get_tradera_price_store( $product, $parent = null ) {
+		// Huvudprodukt som är variabel ska inte få pris i Tradera price store
+		// såvida den inte uttryckligen ska säljas separat.
+		if ( $product->is_type( 'variable' ) ) {
+			$sell_parent = (bool) apply_filters( 'woo_kustom_sello_sell_parent_separately', false, $product );
+			if ( ! $sell_parent ) {
+				return '';
+			}
+		}
+
 		$price = $product->get_price();
+		if ( '' === $price || null === $price ) {
+			$price = $product->get_regular_price();
+		}
+
 		if ( '' === $price || null === $price ) {
 			return '';
 		}
 
-		if ( function_exists( 'wc_get_price_excluding_tax' ) ) {
-			$price_ex = wc_get_price_excluding_tax( $product, array( 'price' => $price ) );
-		} else {
-			$price_ex = (float) $price;
+		$price_float = (float) $price;
+		if ( $price_float <= 0.0 ) {
+			return '';
 		}
 
-		$formatted = number_format( (float) $price_ex, 2, '.', '' );
-		return (string) apply_filters( 'woo_kustom_sello_price', $formatted, $product );
-	}
+		// Skriv priset som heltal utan valuta, till exempel 495
+		$price_int = (string) (int) round( $price_float );
 
-	/**
-	 * Värde för kolumnen Calculate.
-	 *
-	 * Sello kräver obligatoriskt kolumnen "Calculate" när prisfält ingår vid import/uppdatering,
-	 * eftersom den instruerar systemet hur prisberäkningen ska hanteras.
-	 * Sätts normalt till 'true' för rader med priser.
-	 *
-	 * @param WC_Product      $product Produkten eller variationen.
-	 * @param WC_Product|null $parent  Föräldraprodukten.
-	 * @param string          $price   Försäljningspris exklusive moms.
-	 * @return string
-	 */
-	protected function get_calculate( $product, $parent = null, $price = '' ) {
-		$calculate = 'true';
-		return (string) apply_filters( 'woo_kustom_sello_calculate', $calculate, $product, $parent, $price );
+		return (string) apply_filters( 'woo_kustom_sello_tradera_price_store', $price_int, $product, $parent );
 	}
 
 	/**
 	 * Inköpspris (Purchase price) från kända WooCommerce-metafält.
+	 * Formateras som heltal eller decimaltal utan valutasymbol.
 	 *
 	 * @param WC_Product      $product Produkten eller variationen.
 	 * @param WC_Product|null $parent  Föräldraprodukten.
@@ -396,24 +702,83 @@ class WOO_Sello_CSV_Generator {
 		$cost = apply_filters( 'woo_kustom_sello_purchase_price', $cost, $product, $parent );
 
 		if ( '' !== $cost && null !== $cost && is_numeric( $cost ) ) {
-			return number_format( (float) $cost, 2, '.', '' );
+			$cost_float = (float) $cost;
+			// Om heltalsvärde, skriv som heltal; annars 2 decimaler
+			if ( floor( $cost_float ) === $cost_float ) {
+				return (string) (int) $cost_float;
+			}
+			return number_format( $cost_float, 2, '.', '' );
 		}
 
 		return '';
 	}
 
 	/**
-	 * Produktbeskrivning: kort beskrivning om den finns, annars fullständig.
+	 * Produktbeskrivning som ren text utan HTML-taggar.
 	 *
-	 * @param WC_Product $product Föräldraprodukten.
+	 * - Tar bort kortkoder.
+	 * - Tar bort HTML som <p>, <br>, <div> osv.
+	 * - Behåller meningsfulla radbrytningar och styckeindelning.
+	 * - Avkodar HTML-entiteter till ren text (Å, Ä, Ö, &, etc.).
+	 *
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten.
 	 * @return string
 	 */
-	protected function get_description( $product ) {
-		$short = $product->get_short_description();
-		if ( '' !== trim( wp_strip_all_tags( $short ) ) ) {
-			return wp_strip_all_tags( $short );
+	protected function get_clean_description( $product, $parent = null ) {
+		$main = $parent ? $parent : $product;
+
+		$desc = (string) $main->get_description();
+		if ( '' === trim( $desc ) ) {
+			$desc = (string) $main->get_short_description();
 		}
-		return wp_strip_all_tags( $product->get_description() );
+
+		if ( '' === trim( $desc ) && $product !== $parent ) {
+			$desc = (string) $product->get_description();
+		}
+
+		if ( '' === trim( $desc ) ) {
+			return '';
+		}
+
+		// 1. Ta bort WordPress-kortkoder ([shortcode]...[/shortcode] eller [shortcode])
+		if ( function_exists( 'strip_shortcodes' ) ) {
+			$desc = strip_shortcodes( $desc );
+		} else {
+			$desc = preg_replace( '/\[\/?(?:[a-zA-Z0-9_\-]+)[^\]]*\]/', '', $desc );
+		}
+
+		// 2. Ersätt radbrytande HTML-taggar med en radbrytning för att bevara stycke- och liststruktur
+		$desc = preg_replace( '/<br\s*\/?>/i', "\n", $desc );
+		$desc = preg_replace( '/<\/(?:p|div|li|tr|h[1-6])>/i', "\n", $desc );
+
+		// 3. Ta bort resterande HTML-taggar
+		if ( function_exists( 'wp_strip_all_tags' ) ) {
+			$desc = wp_strip_all_tags( $desc, false );
+		} else {
+			$desc = strip_tags( $desc );
+		}
+
+		// 4. Avkoda HTML-entiteter (&amp;, &aring;, &quot;, &#39; etc.)
+		$desc = html_entity_decode( $desc, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+
+		// 5. Normalisera radbrytningar (\r\n och \r blir \n)
+		$desc = str_replace( array( "\r\n", "\r" ), "\n", $desc );
+
+		// 6. Rensa onödiga blanksteg i slutet av varje rad
+		$lines       = explode( "\n", $desc );
+		$clean_lines = array();
+		foreach ( $lines as $line ) {
+			$clean_lines[] = trim( $line );
+		}
+		$desc = implode( "\n", $clean_lines );
+
+		// 7. Komprimera multipla på varandra följande tomma rader (max 2 \n = 1 tom rad emellan stycken)
+		$desc = preg_replace( "/\n{3,}/", "\n\n", $desc );
+
+		$desc = trim( $desc );
+
+		return (string) apply_filters( 'woo_kustom_sello_description', $desc, $product, $parent );
 	}
 
 	/**
@@ -430,7 +795,7 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
-	 * Momssats avrundad till närmsta giltiga Sello-värde (25, 12, 6, 0).
+	 * Momssats i procent som heltal (t.ex. 25 för Sverige, 12 för livsmedel, 6, 0).
 	 *
 	 * @param WC_Product      $product Produkten eller variationen.
 	 * @param WC_Product|null $parent  Föräldraprodukten.
@@ -495,7 +860,7 @@ class WOO_Sello_CSV_Generator {
 			}
 		}
 
-		// 3. Fallback: om butiken är svensk och produkten är skattepliktig, standardisera till 25%.
+		// 3. Standardmoms: 25% för skattepliktiga produkter i Sverige.
 		if ( null === $rate || 0.0 === (float) $rate ) {
 			$tax_class = $product->get_tax_class();
 			if ( 'zero-rate' !== $tax_class ) {
@@ -530,12 +895,11 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
-	 * Vikt i gram (WooCommerce lagrar vikt i butikens viktenhet, normalt kg).
-	 * Ärver från föräldraprodukt om variation saknar egen vikt.
+	 * Vikt i gram. Konverterar automatiskt från butikens viktenhet i WooCommerce (kg, lbs, oz, g).
 	 *
 	 * @param WC_Product      $product Produkten eller variationen.
 	 * @param WC_Product|null $parent  Föräldraprodukten.
-	 * @return string
+	 * @return string Vikt i heltal gram, eller tom sträng om vikt saknas.
 	 */
 	protected function get_weight_grams( $product, $parent = null ) {
 		$weight = $product->get_weight();
@@ -555,7 +919,7 @@ class WOO_Sello_CSV_Generator {
 		$weight = apply_filters( 'woo_kustom_sello_product_weight', $weight, $product, $parent );
 
 		$weight_float = (float) $weight;
-		if ( 0.0 === $weight_float ) {
+		if ( $weight_float <= 0.0 ) {
 			return '';
 		}
 
@@ -580,158 +944,123 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
-	 * Bilder: huvudbild och galleri som kommaseparerad URL-lista.
-	 * För varianter används variantbild om den finns, annars förälderns bilder.
+	 * Bilder: fullständiga URL:er som börjar med https://, separerade med kommatecken.
 	 *
-	 * @param WC_Product $product Produkten/variationen.
-	 * @param WC_Product $parent  Föräldraprodukten.
-	 * @return string
+	 * Lägger variationens specifika bild först (om det är en variation och bilden finns),
+	 * följt av förälderns/produktens huvudbild och eventuella galleribilder.
+	 *
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten.
+	 * @return string Kommaseparerade fullständiga https:// bild-URL:er.
 	 */
-	protected function get_images( $product, $parent ) {
+	protected function get_images( $product, $parent = null ) {
 		$image_ids = array();
 
-		$variation_image_id = $parent !== $product ? $product->get_image_id() : 0;
-		if ( $variation_image_id ) {
-			$image_ids[] = (int) $variation_image_id;
-		}
-
-		$image_ids = array_merge( $image_ids, array_map( 'intval', $parent->get_gallery_image_ids() ) );
-
-		if ( empty( $image_ids ) ) {
-			$parent_image_id = $parent->get_image_id();
-			if ( $parent_image_id ) {
-				$image_ids[] = (int) $parent_image_id;
+		// Om det är en variation med egen utvald bild
+		if ( $parent && $parent !== $product ) {
+			$variation_image_id = $product->get_image_id();
+			if ( $variation_image_id ) {
+				$image_ids[] = (int) $variation_image_id;
 			}
 		}
 
+		// Huvudproduktens / enkla produktens utvalda bild
+		$main_product   = $parent ? $parent : $product;
+		$parent_image_id = $main_product->get_image_id();
+		if ( $parent_image_id ) {
+			$image_ids[] = (int) $parent_image_id;
+		}
+
+		// Galleribilder
+		$gallery_ids = $main_product->get_gallery_image_ids();
+		if ( ! empty( $gallery_ids ) ) {
+			$image_ids = array_merge( $image_ids, array_map( 'intval', $gallery_ids ) );
+		}
+
+		$image_ids = array_unique( array_filter( $image_ids ) );
+
 		$urls = array();
-		foreach ( array_unique( $image_ids ) as $image_id ) {
+		foreach ( $image_ids as $image_id ) {
 			$url = wp_get_attachment_image_url( $image_id, 'full' );
-			if ( $url ) {
+			if ( ! empty( $url ) ) {
+				// Säkerställ fullständig https:// URL
+				if ( function_exists( 'set_url_scheme' ) ) {
+					$url = set_url_scheme( $url, 'https' );
+				} else {
+					$url = preg_replace( '#^http://#i', 'https://', (string) $url );
+				}
 				$urls[] = $url;
 			}
 		}
 
-		return implode( ',', $urls );
+		$urls = array_unique( $urls );
+
+		return (string) apply_filters( 'woo_kustom_sello_images', implode( ',', $urls ), $product, $parent );
 	}
 
 	/**
-	 * Märke från pa_brand-taxonomin eller ett brand-attribut.
+	 * Märke/varumärke från taxonomi (pa_brand, pa_varumarke m.fl.), produktattribut eller metafält.
 	 *
-	 * @param WC_Product $product Föräldraprodukten.
+	 * @param WC_Product $product Produkten eller föräldraprodukten.
 	 * @return string
 	 */
 	protected function get_brand( $product ) {
-		$terms = get_the_terms( $product->get_id(), 'pa_brand' );
-		if ( $terms && ! is_wp_error( $terms ) ) {
-			return reset( $terms )->name;
+		if ( ! $product ) {
+			return '';
 		}
 
+		$product_id = $product->get_id();
+
+		// 1. Kända varumärkestaxonomier
+		$known_taxonomies = array( 'pa_brand', 'pa_varumarke', 'pa_marke', 'yith_product_brand', 'pwb-brand', 'brand' );
+		foreach ( $known_taxonomies as $tax ) {
+			if ( taxonomy_exists( $tax ) ) {
+				$terms = get_the_terms( $product_id, $tax );
+				if ( $terms && ! is_wp_error( $terms ) ) {
+					$first = reset( $terms );
+					if ( ! empty( $first->name ) ) {
+						return (string) $first->name;
+					}
+				}
+			}
+		}
+
+		// 2. Produktattribut med etikett brand, varumärke eller tillverkare
 		foreach ( $product->get_attributes() as $key => $attribute ) {
 			$label = strtolower( trim( $this->attribute_name( $key, $product ) ) );
-			if ( 'brand' !== $label && 'märke' !== $label ) {
-				continue;
-			}
-
-			if ( $attribute instanceof WC_Product_Attribute_Taxonomy && taxonomy_exists( $attribute->get_name() ) ) {
-				$terms = get_the_terms( $product->get_id(), $attribute->get_name() );
-				if ( $terms && ! is_wp_error( $terms ) ) {
-					return reset( $terms )->name;
+			if ( in_array( $label, array( 'brand', 'varumärke', 'varumarke', 'märke', 'marke', 'tillverkare' ), true ) ) {
+				if ( $attribute instanceof WC_Product_Attribute_Taxonomy && taxonomy_exists( $attribute->get_name() ) ) {
+					$terms = get_the_terms( $product_id, $attribute->get_name() );
+					if ( $terms && ! is_wp_error( $terms ) ) {
+						$first = reset( $terms );
+						if ( ! empty( $first->name ) ) {
+							return (string) $first->name;
+						}
+					}
+				} elseif ( $attribute instanceof WC_Product_Attribute ) {
+					$values = $attribute->get_options();
+					if ( ! empty( $values ) ) {
+						$val = reset( $values );
+						if ( is_string( $val ) && '' !== trim( $val ) ) {
+							return trim( $val );
+						}
+					}
 				}
-			} elseif ( $attribute instanceof WC_Product_Attribute ) {
-				$values = $attribute->get_options();
-				if ( ! empty( $values ) ) {
-					return reset( $values );
-				}
 			}
 		}
 
-		return '';
+		// 3. Metafält för varumärke
+		$meta_keys = array( '_brand', 'brand', '_product_brand', 'product_brand', '_varumarke', 'varumarke' );
+		$meta_val  = $this->get_meta_first( $meta_keys, $product );
+		if ( '' !== trim( $meta_val ) ) {
+			return trim( $meta_val );
+		}
+
+		return (string) apply_filters( 'woo_kustom_sello_brand', '', $product );
 	}
 
 	/**
-	 * EAN från vanliga WooCommerce-meta-nycklar och plugins.
-	 * Ärver från föräldraprodukt om variation saknar egen streckkod.
-	 *
-	 * @param WC_Product      $product Produkten eller variationen.
-	 * @param WC_Product|null $parent  Föräldraprodukten.
-	 * @return string
-	 */
-	protected function get_ean( $product, $parent = null ) {
-		$keys = (array) apply_filters(
-			'woo_kustom_sello_ean_meta_keys',
-			array(
-				'_ean',
-				'ean',
-				'_barcode',
-				'barcode',
-				'_gtin',
-				'gtin',
-				'_alg_ean',
-				'alg_ean',
-				'_global_unique_id',
-				'global_unique_id',
-				'_upc',
-				'upc',
-				'_ts_gtin',
-				'ts_gtin',
-				'_wpm_gtin_code',
-				'wpm_gtin_code',
-				'hwp_product_gtin',
-			),
-			$product
-		);
-
-		$ean = $this->get_meta_first( $keys, $product );
-		if ( ( '' === $ean || null === $ean ) && $parent && $parent !== $product ) {
-			$ean = $this->get_meta_first( $keys, $parent );
-		}
-
-		return (string) apply_filters( 'woo_kustom_sello_product_ean', $ean, $product, $parent );
-	}
-
-	/**
-	 * GTIN från vanliga WooCommerce-meta-nycklar och plugins.
-	 * Ärver från föräldraprodukt och faller tillbaka på EAN om GTIN saknas.
-	 *
-	 * @param WC_Product      $product Produkten eller variationen.
-	 * @param WC_Product|null $parent  Föräldraprodukten.
-	 * @return string
-	 */
-	protected function get_gtin( $product, $parent = null ) {
-		$keys = (array) apply_filters(
-			'woo_kustom_sello_gtin_meta_keys',
-			array(
-				'_gtin',
-				'gtin',
-				'_ean',
-				'ean',
-				'_barcode',
-				'barcode',
-				'_alg_ean',
-				'alg_ean',
-				'_global_unique_id',
-				'global_unique_id',
-				'_upc',
-				'upc',
-			),
-			$product
-		);
-
-		$gtin = $this->get_meta_first( $keys, $product );
-		if ( ( '' === $gtin || null === $gtin ) && $parent && $parent !== $product ) {
-			$gtin = $this->get_meta_first( $keys, $parent );
-		}
-
-		if ( '' === $gtin || null === $gtin ) {
-			$gtin = $this->get_ean( $product, $parent );
-		}
-
-		return (string) apply_filters( 'woo_kustom_sello_product_gtin', $gtin, $product, $parent );
-	}
-
-	/**
-	 * Returnera första icke-tomma metavärdet bland nycklarna.
+	 * Returnera första icke-tomma metavärdet bland angivna nycklar.
 	 *
 	 * @param string[]   $keys    Meta-nycklar i prioritetsordning.
 	 * @param WC_Product $product Produkten eller variationen.
@@ -748,7 +1077,7 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
-	 * Produktiterator som respekterar inställningarna.
+	 * Produktiterator som respekterar exportinställningarna.
 	 *
 	 * @return iterable<WC_Product>
 	 */
@@ -847,7 +1176,7 @@ class WOO_Sello_CSV_Generator {
 	 * @param mixed $value Cellvärde.
 	 * @return mixed
 	 */
-	protected function sanitize_cell( $value ) {
+	public function sanitize_cell( $value ) {
 		if ( ! is_string( $value ) ) {
 			return $value;
 		}

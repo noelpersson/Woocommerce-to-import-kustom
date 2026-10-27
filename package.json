@@ -1,11 +1,19 @@
 {
   "name": "woo-kustom-export",
-  "version": "1.4.1",
-  "description": "Exportera WooCommerce-produkter till CSV och Excel redo för Kustom POS och Sello.",
+  "version": "1.5.0",
+  "description": "Exportera WooCommerce-produkter till CSV och Excel redo för Kustom POS och Sello (Tradera).",
   "author": "Linthor Webbyrå",
   "license": "GPL-2.0-or-later",
   "private": true,
   "scripts": {
-    "plugin-zip": "node bin/build-zip.js"
+    "build:css": "tailwindcss -i src/css/admin.css -o assets/admin.css --postcss --minify",
+    "watch:css": "tailwindcss -i src/css/admin.css -o assets/admin.css --postcss --watch",
+    "plugin-zip": "npm run build:css && node bin/build-zip.js"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.6.2",
+    "postcss": "^8.5.32",
+    "postcss-prefix-selector": "^2.2.1",
+    "tailwindcss": "^3.4.19"
   }
 }

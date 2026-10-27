@@ -1,16 +1,16 @@
 === WooCommerce Product Export (Kustom & Sello) ===
 Contributors: linthorwebbyra
-Tags: woocommerce, kustom, sello, export, csv, excel, products
+Tags: woocommerce, kustom, sello, export, csv, excel, products, tradera
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.4.1
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 Utvecklat av [Linthor Webbyrå](https://linthor.com).
 
-Exportera WooCommerce-produkter till CSV- och Excel-filer redo för bulkimport i Kustom POS och Sello.
+Exportera WooCommerce-produkter till CSV- och Excel-filer redo för bulkimport i Kustom POS och Sello (för Tradera).
 
 == Beskrivning ==
 
@@ -21,13 +21,16 @@ Funktioner:
 * Ny och intuitiv Dashboard: Tydlig översikt med snabbkort för Kustom POS och Sello.
 * Dedikerade exportsidor för Kustom POS och Sello med fliknavigering.
 * Tre exportformat: Kustom POS CSV, Sello Excel (.xlsx) och Sello CSV.
-* Exporterar enkla produkter och variabla produkter (varje variant blir en egen rad).
+* Exporterar enkla produkter och variabla produkter (varje variant blir en egen rad med unikt SKU).
 * Kustom: fyra obligatoriska kolumner (product_name, price_including_vat, vat_rate, currency) plus valfria WooCommerce-fält och dynamiska attributkolumner.
 * Kustom fältväljare: Välj fritt bland alla standardfält i WooCommerce (SKU, Produkt-ID, Föräldra-SKU, Produkttyp, Ordinarie pris, Reapris, Pris exkl. moms, Momsklass, Lagersaldo, Lagerstatus, Lagerhantering, EAN/Streckkod, Beskrivning, Kort beskrivning, Kategorier, Taggar, Vikt, Längd, Bredd, Höjd, Fraktklass, Bild-URL, Galleribilder).
 * Kustom flerval av attribut: Välj flera eller alla registrerade produktattribut som egna kolumner med en-och-en kryssrutor samt "Markera alla"-knappar.
-* Sello: kolumner enligt Sellos officiella Excel-importdokumentation (Sku, Standard name, Standard description, Price, VAT rate, Property EAN, Property GTIN, Images, Group sku, Group type, Stock). Variationer grupperas via Group sku och Group type (color, model eller size).
-* Priser: Kustom exporterar priser inklusive moms, medan Sello exporterar priser exklusive moms tillsammans med momssats enligt marknadsplatsstandard.
-* Filnamn: kustom-products-YYYY-MM-DD-HHmm.csv respektive sello-products-YYYY-MM-DD-HHmm.csv/xlsx, UTF-8, komma som avgränsare, LF som radslut.
+* Sello för Tradera: Exakt 12 kolumner för Tradera butiksobjekt (Sku, Standard name sv, Standard description sv, Tradera price store, Purchase price, Quantity, Tax, Weight, Images, Brand, Group sku, Group type).
+* Tradera butikspris: Fast pris i heltal utan valuta i Tradera price store (t.ex. 495). Price och Calculate utelämnas för att undvika oönskad prisberäkning i Sello.
+* Ren textbeskrivning: HTML-taggar och kortkoder rensas bort samtidigt som meningsfulla styckebrytningar bibehålls.
+* Högupplösta bildlänkar: Samtliga bildlänkar tvingas till fullständiga https://-URL:er separerade med komma.
+* Live förhandsgranskning & validering: Visar de första raderna direkt i admin och varnar tydligt om artiklar saknar SKU eller pris.
+* Filnamn: kustom-products-YYYY-MM-DD-HHmm.csv respektive sello-tradera-products-YYYY-MM-DD.xlsx/csv, UTF-8 med BOM för CSV, komma som avgränsare, LF som radslut.
 * CSV-injection-skydd: cellvärden som börjar med =, +, - eller @ prefixas med en apostrof.
 * Låg minnesanvändning: produkter strömmas rad för rad även för stora kataloger.
 
@@ -45,13 +48,23 @@ Funktioner:
 1. Gå till WooCommerce → Produkt-export.
 2. Översikten visar antal enkla produkter, antal varianter och totalt antal rader i butiken, samt två tydliga kort för Kustom POS och Sello.
 3. Klicka på "Öppna Kustom-export" för att hantera Kustom-specifika inställningar (som valfria WooCommerce-kolumner och attribut) och ladda ner Kustom POS CSV.
-4. Klicka på "Öppna Sello-export" för att ladda ner Sello Excel (.xlsx) eller CSV och följa steg-för-steg-guiden för Sello-import.
+4. Klicka på "Öppna Sello-export" för att ladda ner Sello Excel (.xlsx) eller CSV anpassad för Tradera butiksobjekt och granska förhandsgranskning och validering.
 
 Kustom: importera filen via Kustom POS produktimport. VARNING: befintliga produkter i samma Kustom-butik ersätts vid import. Granska filen innan du importerar den.
 
 Sello: logga in i Sello, öppna menyn uppe till vänster, gå till Import / export, välj Excel i Import-sektionen och välj "Skapa nya produkter från min fil" eller "Uppdatera produkter med min fil".
 
 == Changelog ==
+
+= 1.5.0 =
+* Sello & Tradera-kompatibilitet: Ny kolumnstruktur med exakt 12 kolumner (Sku, Standard name sv, Standard description sv, Tradera price store, Purchase price, Quantity, Tax, Weight, Images, Brand, Group sku, Group type).
+* Fast butikspris för Tradera: Mappat till "Tradera price store" som heltal utan valuta (ex. 495). Kolumnerna Price och Calculate utelämnas för att förhindra felaktig automatisk prisberäkning i Sello.
+* Ren textbeskrivning: HTML-taggar och kortkoder tas bort samtidigt som meningsfulla styckebrytningar bevaras.
+* Fullständiga https:// bild-URL:er: Alla bildlänkar säkerställs som fullständiga https-adresser separerade med komma.
+* Automatisk variantgruppering: Group sku och Group type (color, size, model) kopplar varianter till föräldern. Huvudprodukten har inget pris i filen om den inte säljs separat.
+* Ny live förhandsgranskning i admin: Granska de första raderna av exporten direkt i Sello-fliken.
+* Tydliga felmeddelanden och validering: Varnar direkt i gränssnittet om produkter eller varianter saknar SKU eller försäljningspris med snabblänkar för redigering.
+* Nya filnamn: sello-tradera-products-YYYY-MM-DD.xlsx och sello-tradera-products-YYYY-MM-DD.csv.
 
 = 1.4.0 =
 * Stöd för alla WooCommerce-fält i Kustom POS CSV-export: SKU, Produkt-ID, Föräldra-SKU, Produkttyp, Ordinarie pris, Reapris, Pris exkl. moms, Momsklass, Lagersaldo, Lagerstatus, Lagerhantering, EAN/Streckkod, Beskrivning, Kort beskrivning, Kategorier, Taggar, Vikt, Mått (Längd, Bredd, Höjd), Fraktklass, Bild-URL och Galleribilder.

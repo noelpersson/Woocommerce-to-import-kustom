@@ -34,6 +34,29 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 	protected $variation_attribute_cache = array();
 
 	/**
+	 * Godkända kolumner i Kustom POS datamodell vid produktimport.
+	 *
+	 * Kustom POS har ett strikt importschema och ignorerar egna anpassade kolumner.
+	 *
+	 * @return string[]
+	 */
+	public static function get_approved_columns() {
+		return array(
+			'product_name',
+			'price_including_vat',
+			'vat_rate',
+			'currency',
+			'sku',
+			'product_id',
+			'parent_sku',
+			'description',
+			'category',
+			'ean',
+			'image_url',
+		);
+	}
+
+	/**
 	 * Hämta alla stödda valfria kolumner från WooCommerce med etiketter, grupp och beskrivning.
 	 *
 	 * @return array<string,array{label:string,group:string,desc:string}>
@@ -211,9 +234,15 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 	public function __construct( $settings = array() ) {
 		parent::__construct( $settings );
 
-		$supported = self::get_supported_optional_columns();
+		$defaults_standard = array( 'sku', 'gtin', 'regular_price', 'sale_price', 'stock_quantity', 'image_url', 'short_description', 'category_tree' );
+		$has_saved         = ! empty( $this->settings['optional_columns'] );
+		$supported         = self::get_supported_optional_columns();
 		foreach ( array_keys( $supported ) as $key ) {
-			$this->optional_columns[ $key ] = ! empty( $this->settings['optional_columns'][ $key ] );
+			if ( $has_saved ) {
+				$this->optional_columns[ $key ] = ! empty( $this->settings['optional_columns'][ $key ] );
+			} else {
+				$this->optional_columns[ $key ] = in_array( $key, $defaults_standard, true );
+			}
 		}
 
 		if ( ! isset( $this->settings['custom_attribute'] ) ) {
@@ -236,6 +265,7 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 
 	/**
 	 * Hämta lista över valda egna attribut (sanerade mot tillgängliga attribut i butiken).
+	 * Skick och dess synonymer exkluderas alltid eftersom det ingår i namn och beskrivning.
 	 *
 	 * @return string[]
 	 */
@@ -249,6 +279,10 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 		}
 
 		$selected = array_values( array_unique( array_filter( array_map( 'strtolower', array_map( 'trim', $selected ) ) ) ) );
+
+		// Exkludera alltid skick ur separata kolumner.
+		$excluded = array( 'skick', 'pa_skick', 'condition', 'pa_condition', 'tillstånd', 'tillstand', 'pa_tillstand' );
+		$selected = array_values( array_diff( $selected, $excluded ) );
 
 		$available = $this->get_available_attributes();
 		return array_values( array_intersect( $selected, $available ) );
@@ -275,7 +309,7 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 
 	/**
 	 * Samla alla attributrubriker som finns i katalogen (globala och produktspecifika),
-	 * sorterade alfabetiskt.
+	 * sorterade alfabetiskt. Skick exkluderas då det slås ihop med namn och beskrivning.
 	 *
 	 * @return string[]
 	 */
@@ -287,7 +321,8 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 
 		$attributes = array();
 		$reserved   = array_merge(
-			array( 'product_name', 'price_including_vat', 'vat_rate', 'currency' ),
+			self::get_approved_columns(),
+			array( 'skick', 'pa_skick', 'condition', 'pa_condition', 'tillstånd', 'tillstand', 'pa_tillstand' ),
 			array_keys( self::get_supported_optional_columns() )
 		);
 
@@ -352,7 +387,94 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 	}
 
 	/**
-	 * Bygg grundrad (obligatoriska + valda valfria kolumner) för en produkt eller variation.
+	 * Hämta skick för en produkt eller variation från attribut eller metadata.
+	 *
+	 * Kontrollerar attribut (skick, pa_skick, condition, pa_condition etc.)
+	 * samt metadata (_skick, skick, _condition, condition etc.). Faller tillbaka till
+	 * föräldraprodukten om produkten är en variation och saknar eget värde.
+	 *
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten vid varianter.
+	 * @return string Skick-sträng, eller tom sträng om skick saknas.
+	 */
+	public function get_condition( $product, $parent = null ) {
+		if ( ! $product || ! is_object( $product ) ) {
+			return '';
+		}
+
+		$condition = '';
+
+		// 1. Kontrollera standardattribut via get_attribute()
+		$candidate_keys = array( 'skick', 'pa_skick', 'condition', 'pa_condition', 'tillstand', 'pa_tillstand' );
+		if ( method_exists( $product, 'get_attribute' ) ) {
+			foreach ( $candidate_keys as $key ) {
+				$val = $product->get_attribute( $key );
+				if ( '' !== trim( (string) $val ) ) {
+					$condition = trim( (string) $val );
+					break;
+				}
+			}
+		}
+
+		// 2. Kontrollera produktens attributobjekt/array via get_attributes()
+		if ( '' === $condition && method_exists( $product, 'get_attributes' ) ) {
+			foreach ( $product->get_attributes() as $taxonomy => $val ) {
+				$label       = $this->attribute_label( $taxonomy, $parent ? $parent : $product );
+				$label_clean = strtolower( trim( (string) $label ) );
+				if ( in_array( $label_clean, array( 'skick', 'condition', 'tillstånd', 'tillstand' ), true ) ) {
+					if ( $val instanceof WC_Product_Attribute ) {
+						$condition = trim( $this->attribute_option_value( $val ) );
+					} elseif ( is_string( $val ) || is_numeric( $val ) ) {
+						$condition = trim( $this->attribute_value( $taxonomy, (string) $val ) );
+					}
+					if ( '' !== $condition ) {
+						break;
+					}
+				}
+			}
+		}
+
+		// 3. Kontrollera metafält (post meta)
+		if ( '' === $condition && method_exists( $product, 'get_meta' ) ) {
+			$meta_keys = array( '_skick', 'skick', '_condition', 'condition', '_pa_skick', 'pa_skick', '_tillstand', 'tillstand' );
+			foreach ( $meta_keys as $meta_key ) {
+				$val = $product->get_meta( $meta_key, true );
+				if ( is_string( $val ) || is_numeric( $val ) ) {
+					$val_str = trim( (string) $val );
+					if ( '' !== $val_str ) {
+						$condition = $val_str;
+						break;
+					}
+				}
+			}
+		}
+
+		// Fallback till get_post_meta om get_meta inte gav något och funktionen finns
+		if ( '' === $condition && function_exists( 'get_post_meta' ) && method_exists( $product, 'get_id' ) ) {
+			$post_id   = $product->get_id();
+			$meta_keys = array( '_skick', 'skick', '_condition', 'condition' );
+			foreach ( $meta_keys as $meta_key ) {
+				$val = get_post_meta( $post_id, $meta_key, true );
+				if ( is_string( $val ) || is_numeric( $val ) ) {
+					$val_str = trim( (string) $val );
+					if ( '' !== $val_str ) {
+						$condition = $val_str;
+						break;
+					}
+				}
+			}
+		}
+
+		// 4. Om produkten är en variation och inget skick hittats, ärv från föräldern
+		if ( '' === $condition && $parent && $parent !== $product ) {
+			return $this->get_condition( $parent, null );
+		}
+
+		return wp_strip_all_tags( $condition );
+	}
+
+	/**
+	 * Bygg rad (obligatoriska + valda valfria kolumner) för en produkt eller variation.
 	 *
 	 * @param WC_Product $product Produkten/variationen som radens data hämtas från.
 	 * @param WC_Product $parent  Föräldraprodukten (samma som $product för enkla produkter).
@@ -366,10 +488,12 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 		$currency = strtoupper( (string) $currency );
 
 		// post_title som produktnamn: använd förälderns namn för varianter eller produktens eget namn för enkla produkter.
+		// Extra fält (som skick) läggs inte till i produktnamnet för att hålla namnet rent.
 		$product_name = $parent ? $parent->get_name() : $product->get_name();
 		if ( empty( $product_name ) && $parent ) {
 			$product_name = get_the_title( $parent->get_id() );
 		}
+		$product_name = trim( (string) $product_name );
 
 		$vat_rate_val = $this->get_vat_rate( $product, $parent );
 		$vat_rate_str = ( (float) $vat_rate_val === (float) (int) $vat_rate_val )
@@ -442,7 +566,24 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 	protected function get_column_value( $col, $product, $parent ) {
 		switch ( $col ) {
 			case 'sku':
-				return (string) $product->get_sku();
+				$sku = (string) $product->get_sku();
+				if ( '' === trim( $sku ) ) {
+					$meta_keys = array( '_sku', 'sku', '_artnr', 'artnr', '_artikelnr', 'artikelnr' );
+					$sku       = (string) $this->get_meta_first( $meta_keys, $product );
+				}
+				if ( '' === trim( $sku ) ) {
+					if ( $product->is_type( 'variation' ) ) {
+						$parent_sku = ( $parent && $parent !== $product ) ? (string) $parent->get_sku() : '';
+						if ( '' !== trim( $parent_sku ) ) {
+							$sku = trim( $parent_sku ) . '-' . $product->get_id();
+						} else {
+							$sku = (string) $product->get_id();
+						}
+					} else {
+						$sku = (string) $product->get_id();
+					}
+				}
+				return trim( $sku );
 
 			case 'product_id':
 			case 'id':
@@ -507,17 +648,32 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 				return $this->get_ean( $product );
 
 			case 'description':
-				$desc = $product->is_type( 'variation' ) && $product->get_description()
+				$desc = ( $product->is_type( 'variation' ) && $product->get_description() )
 					? $product->get_description()
-					: $parent->get_description();
-				return wp_strip_all_tags( (string) $desc );
+					: ( $parent ? $parent->get_description() : $product->get_description() );
+				$desc = trim( wp_strip_all_tags( (string) $desc ) );
+
+				// Krav: Säkerställ att fältet description fylls med informationen om skicket.
+				$condition = $this->get_condition( $product, $parent );
+				if ( '' !== $condition ) {
+					$condition_line = 'Skick: ' . $condition;
+					if ( '' !== $desc ) {
+						if ( false === stripos( $desc, $condition_line ) && false === stripos( $desc, 'skick: ' . $condition ) ) {
+							$desc .= "\n" . $condition_line;
+						}
+					} else {
+						$desc = $condition_line;
+					}
+				}
+				return $desc;
 
 			case 'short_description':
 				return wp_strip_all_tags( (string) $parent->get_short_description() );
 
 			case 'category':
 			case 'category_tree':
-				return $this->get_primary_category( $parent );
+				$cat_prod = $parent ? $parent : $product;
+				return $this->get_primary_category( $cat_prod );
 
 			case 'categories':
 				$terms = wp_get_post_terms( $parent->get_id(), 'product_cat', array( 'fields' => 'names' ) );

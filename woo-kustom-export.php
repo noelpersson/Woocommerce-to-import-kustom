@@ -2,8 +2,8 @@
 /**
  * Plugin Name: WooCommerce Product Export (Kustom & Sello)
  * Plugin URI:  https://linthor.com
- * Description: Exporterar alla WooCommerce-produkter (enkla och variabla) för bulkimport i Kustom POS och Sello.
- * Version:     1.4.1
+ * Description: Exporterar alla WooCommerce-produkter (enkla och variabla) för bulkimport i Kustom POS och Sello (Tradera).
+ * Version:     1.5.0
  * Author:      Linthor Webbyrå
  * Author URI:  https://linthor.com
  * License:     GPL-2.0-or-later
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'WOO_KUSTOM_EXPORT_VERSION', '1.4.1' );
+define( 'WOO_KUSTOM_EXPORT_VERSION', '1.5.0' );
 define( 'WOO_KUSTOM_EXPORT_PLUGIN_FILE', __FILE__ );
 define( 'WOO_KUSTOM_EXPORT_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'WOO_KUSTOM_EXPORT_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -59,5 +59,16 @@ register_activation_hook(
 				)
 			);
 		}
+
+		if ( ! wp_next_scheduled( 'woo_kustom_export_cleanup_archive' ) ) {
+			wp_schedule_event( time(), 'daily', 'woo_kustom_export_cleanup_archive' );
+		}
+	}
+);
+
+register_deactivation_hook(
+	__FILE__,
+	static function () {
+		wp_clear_scheduled_hook( 'woo_kustom_export_cleanup_archive' );
 	}
 );

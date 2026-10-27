@@ -67,7 +67,8 @@
 		var icon = target === 'save_ok' ? 'check_circle' : 'file_download';
 		var msg = target === 'save_ok' ? 'Kustom POS-inställningarna har sparats!' : ('Genererar och laddar ner ' + name + '...');
 		toast.innerHTML = '<span class="material-symbols-outlined text-[18px]" style="color:#95f8a7;font-size:18px;">' + icon + '</span> ' + msg;
-		document.body.appendChild(toast);
+		var container = document.getElementById('woo-kustom-export-root') || document.body;
+		container.appendChild(toast);
 
 		setTimeout(function () {
 			toast.style.opacity = '0';
@@ -247,6 +248,9 @@
 				if (cb.checked) {
 					checkedAttrs++;
 					var cleanName = (cb.dataset.attrLabel || cb.value || '').toLowerCase().trim();
+					if (cleanName === 'skick' || cleanName === 'condition' || cleanName === 'pa_skick') {
+						return;
+					}
 					var colName = 'attribute_' + cleanName.replace(/^attribute_/, '').replace(/^pa_/, '');
 					var sample1 = '"Val 1"';
 					var sample2 = '"Val 2"';
@@ -263,9 +267,6 @@
 					} else if (cleanName.indexOf('material') !== -1) {
 						sample1 = '"100% Linne"';
 						sample2 = '"100% Linne"';
-					} else if (cleanName.indexOf('skick') !== -1) {
-						sample1 = '"Nyskick"';
-						sample2 = '"Nyskick"';
 					}
 
 					cols.push({
@@ -439,7 +440,7 @@
 
 	/**
 	 * Logik för Sello-fliken:
-	 * Ladda ner-knappar med toasts, filterväxling mellan 8 och 15 fält, kopiering av feed-URL.
+	 * Ladda ner-knappar med toasts och filnamnsfeedback för Tradera-export.
 	 */
 	function initSelloExportTab() {
 		var toast = document.getElementById('toastNotification');
@@ -460,61 +461,18 @@
 		var xlsxBtn = document.getElementById('downloadXlsxBtn');
 		if (xlsxBtn) {
 			xlsxBtn.addEventListener('click', function () {
-				var count = xlsxBtn.getAttribute('data-count') || '5 052';
-				showToast('Genererar och laddar ner Sello_Export_2025.xlsx (' + count + ' rader)...');
+				var count = xlsxBtn.getAttribute('data-count') || '';
+				var fn = xlsxBtn.getAttribute('data-filename') || 'sello-tradera-products.xlsx';
+				var countText = count ? ' (' + count + ' rader)' : '';
+				showToast('Genererar och laddar ner ' + fn + countText + '...');
 			});
 		}
 
 		var csvBtn = document.getElementById('downloadCsvBtn');
 		if (csvBtn) {
 			csvBtn.addEventListener('click', function () {
-				showToast('Genererar Sello_Export_UTF8.csv...');
-			});
-		}
-
-		var copyBtn = document.getElementById('copyUrlBtn');
-		if (copyBtn) {
-			copyBtn.addEventListener('click', function (e) {
-				e.preventDefault();
-				var feedUrl = copyBtn.getAttribute('data-feed-url') || window.location.href;
-				if (navigator.clipboard && navigator.clipboard.writeText) {
-					navigator.clipboard.writeText(feedUrl).then(function () {
-						showToast('Feed-URL har kopierats till urklipp!');
-					}).catch(function () {
-						showToast('Feed-URL har kopierats till urklipp!');
-					});
-				} else {
-					showToast('Feed-URL har kopierats till urklipp!');
-				}
-			});
-		}
-
-		var coreBtn = document.getElementById('selloFilterCoreBtn');
-		var allBtn = document.getElementById('selloFilterAllBtn');
-		var extraRows = document.querySelectorAll('.sello-extra-row');
-		var validationText = document.getElementById('selloValidationText');
-
-		if (coreBtn && allBtn) {
-			coreBtn.addEventListener('click', function () {
-				extraRows.forEach(function (row) {
-					row.classList.add('hidden');
-				});
-				coreBtn.className = 'font-label-sm text-label-sm px-2.5 py-1 rounded bg-surface-container text-on-surface font-semibold border-0 cursor-pointer transition-colors';
-				allBtn.className = 'font-label-sm text-label-sm px-2.5 py-1 rounded bg-surface-container-low text-on-surface-variant hover:text-on-surface font-medium border-0 cursor-pointer transition-colors';
-				if (validationText) {
-					validationText.textContent = 'Alla 8 fält kontrollerade utan fel mot Sello API v4 valideringsschema.';
-				}
-			});
-
-			allBtn.addEventListener('click', function () {
-				extraRows.forEach(function (row) {
-					row.classList.remove('hidden');
-				});
-				allBtn.className = 'font-label-sm text-label-sm px-2.5 py-1 rounded bg-surface-container text-on-surface font-semibold border-0 cursor-pointer transition-colors';
-				coreBtn.className = 'font-label-sm text-label-sm px-2.5 py-1 rounded bg-surface-container-low text-on-surface-variant hover:text-on-surface font-medium border-0 cursor-pointer transition-colors';
-				if (validationText) {
-					validationText.textContent = 'Samtliga 15 fält kontrollerade utan fel mot Sello API v4 valideringsschema.';
-				}
+				var fn = csvBtn.getAttribute('data-filename') || 'sello-tradera-products.csv';
+				showToast('Genererar och laddar ner ' + fn + ' (UTF-8)...');
 			});
 		}
 	}
