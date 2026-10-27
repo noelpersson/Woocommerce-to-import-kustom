@@ -78,6 +78,8 @@ class WOO_Sello_CSV_Generator {
 			'Brand',
 			'Group sku',
 			'Group type',
+			'Property Skick',
+			'Property Är begagnad',
 		);
 	}
 
@@ -158,6 +160,18 @@ class WOO_Sello_CSV_Generator {
 				'label'    => __( 'Grupptyp', 'woo-kustom-export' ),
 				'desc'     => __( 'Variantdimension (color, size, model).', 'woo-kustom-export' ),
 				'code'     => 'Group type',
+				'required' => false,
+			),
+			'Property Skick'          => array(
+				'label'    => __( 'Tradera Skick', 'woo-kustom-export' ),
+				'desc'     => __( 'Tradera-skick (Oanvänt, Mycket gott skick, Gott skick, etc.). Mappas automatiskt från skick-attributet.', 'woo-kustom-export' ),
+				'code'     => 'Property Skick',
+				'required' => false,
+			),
+			'Property Är begagnad'    => array(
+				'label'    => __( 'Är begagnad', 'woo-kustom-export' ),
+				'desc'     => __( 'Tradera-egenskap Yes/No. Sätts automatiskt utifrån produktens skick.', 'woo-kustom-export' ),
+				'code'     => 'Property Är begagnad',
 				'required' => false,
 			),
 		);
@@ -574,6 +588,7 @@ class WOO_Sello_CSV_Generator {
 	 */
 	protected function build_base_row( $product, $parent ) {
 		$is_parent_variable = ( $product === $parent && $product->is_type( 'variable' ) );
+		$condition_data     = $this->get_tradera_condition_data( $product, $parent );
 
 		return array(
 			'Sku'                     => $this->get_sku( $product, $parent ),
@@ -588,7 +603,165 @@ class WOO_Sello_CSV_Generator {
 			'Brand'                   => $this->get_brand( $parent ),
 			'Group sku'               => '',
 			'Group type'              => '',
+			'Property Skick'          => $condition_data['condition'],
+			'Property Är begagnad'    => $condition_data['is_used'],
 		);
+	}
+
+	/**
+	 * Hämta och mappa skick för Tradera/Sello utifrån WooCommerce-attribut och metadata.
+	 *
+	 * Mappar "Ny" -> "Oanvänt" (Är begagnad: No)
+	 * Mappar "Vintage" -> Inställt begagnat skick, standard "Gott skick" (Är begagnad: Yes)
+	 *
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten.
+	 * @return array{condition: string, is_used: string}
+	 */
+	public function get_tradera_condition_data( $product, $parent = null ) {
+		$raw_condition = $this->get_raw_condition( $product, $parent );
+		$clean         = strtolower( trim( $raw_condition ) );
+
+		$vintage_target = ! empty( $this->settings['sello_vintage_condition'] ) ? $this->settings['sello_vintage_condition'] : 'Gott skick';
+		$default_target = ! empty( $this->settings['sello_default_condition'] ) ? $this->settings['sello_default_condition'] : 'Oanvänt';
+
+		// Om inget skick hittats på produkten
+		if ( '' === $clean ) {
+			$is_used = ( 'Oanvänt' === $default_target ) ? 'No' : 'Yes';
+			return array(
+				'condition' => $default_target,
+				'is_used'   => $is_used,
+			);
+		}
+
+		// Ny / New / Oanvänt
+		if ( in_array( $clean, array( 'ny', 'nytt', 'new', 'brand new', 'oanvänt', 'oanvant', 'unused' ), true ) ) {
+			return array(
+				'condition' => 'Oanvänt',
+				'is_used'   => 'No',
+			);
+		}
+
+		// Vintage / Retro / Begagnad
+		if ( in_array( $clean, array( 'vintage', 'retro', 'begagnad', 'begagnat', 'used', 'second hand', 'secondhand' ), true ) ) {
+			return array(
+				'condition' => $vintage_target,
+				'is_used'   => 'Yes',
+			);
+		}
+
+		// Direkta matchningar mot Traderas officiella skickgraderingar
+		if ( false !== strpos( $clean, 'mycket gott' ) || false !== strpos( $clean, 'nyskick' ) || false !== strpos( $clean, 'very good' ) ) {
+			return array(
+				'condition' => 'Mycket gott skick',
+				'is_used'   => 'Yes',
+			);
+		}
+
+		if ( false !== strpos( $clean, 'gott skick' ) || false !== strpos( $clean, 'bra skick' ) || false !== strpos( $clean, 'good' ) ) {
+			return array(
+				'condition' => 'Gott skick',
+				'is_used'   => 'Yes',
+			);
+		}
+
+		if ( false !== strpos( $clean, 'okej' ) || false !== strpos( $clean, 'ok' ) || false !== strpos( $clean, 'slitage' ) || false !== strpos( $clean, 'fair' ) ) {
+			return array(
+				'condition' => 'Okej skick',
+				'is_used'   => 'Yes',
+			);
+		}
+
+		if ( false !== strpos( $clean, 'defekt' ) || false !== strpos( $clean, 'trasig' ) || false !== strpos( $clean, 'damaged' ) ) {
+			return array(
+				'condition' => 'Defekt',
+				'is_used'   => 'Yes',
+			);
+		}
+
+		// Fallback för övriga värden
+		return array(
+			'condition' => $vintage_target,
+			'is_used'   => 'Yes',
+		);
+	}
+
+	/**
+	 * Hämta rått skickvärde från WooCommerce-attribut eller metadata.
+	 *
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten.
+	 * @return string
+	 */
+	protected function get_raw_condition( $product, $parent = null ) {
+		if ( ! $product || ! is_object( $product ) ) {
+			return '';
+		}
+
+		$condition      = '';
+		$candidate_keys = array( 'skick', 'pa_skick', 'condition', 'pa_condition', 'tillstand', 'pa_tillstand' );
+
+		if ( method_exists( $product, 'get_attribute' ) ) {
+			foreach ( $candidate_keys as $key ) {
+				$val = $product->get_attribute( $key );
+				if ( '' !== trim( (string) $val ) ) {
+					$condition = trim( (string) $val );
+					break;
+				}
+			}
+		}
+
+		if ( '' === $condition && method_exists( $product, 'get_attributes' ) ) {
+			foreach ( $product->get_attributes() as $taxonomy => $val ) {
+				$label = '';
+				if ( taxonomy_exists( $taxonomy ) ) {
+					$label = wc_attribute_label( $taxonomy );
+				} elseif ( is_string( $taxonomy ) ) {
+					$label = $taxonomy;
+				}
+				$label_clean = strtolower( trim( (string) $label ) );
+				if ( in_array( $label_clean, array( 'skick', 'condition', 'tillstånd', 'tillstand' ), true ) ) {
+					if ( $val instanceof WC_Product_Attribute ) {
+						$options = $val->get_options();
+						if ( ! empty( $options ) ) {
+							$first = reset( $options );
+							if ( is_numeric( $first ) ) {
+								$term = get_term( (int) $first );
+								$condition = ( $term && ! is_wp_error( $term ) ) ? $term->name : (string) $first;
+							} else {
+								$condition = (string) $first;
+							}
+						}
+					} elseif ( is_string( $val ) || is_numeric( $val ) ) {
+						$condition = (string) $val;
+					}
+					if ( '' !== $condition ) {
+						break;
+					}
+				}
+			}
+		}
+
+		if ( '' === $condition && method_exists( $product, 'get_meta' ) ) {
+			$meta_keys = array( '_skick', 'skick', '_condition', 'condition', '_pa_skick', 'pa_skick', '_tillstand', 'tillstand' );
+			foreach ( $meta_keys as $meta_key ) {
+				$val = $product->get_meta( $meta_key, true );
+				if ( is_string( $val ) || is_numeric( $val ) ) {
+					$val_str = trim( (string) $val );
+					if ( '' !== $val_str ) {
+						$condition = $val_str;
+						break;
+					}
+				}
+			}
+		}
+
+		// Om variation och tomt, ärv från föräldern
+		if ( '' === $condition && $parent && $parent !== $product ) {
+			return $this->get_raw_condition( $parent, null );
+		}
+
+		return wp_strip_all_tags( $condition );
 	}
 
 	/**

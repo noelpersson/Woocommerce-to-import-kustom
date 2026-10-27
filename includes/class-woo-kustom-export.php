@@ -137,13 +137,15 @@ class WOO_Kustom_Export {
 	 */
 	public static function get_settings() {
 		$defaults = array(
-			'include_drafts'     => 0,
-			'include_private'    => 0,
-			'include_outofstock' => 0,
-			'optional_columns'   => array(),
-			'custom_attribute'   => '',
-			'custom_attributes'  => array(),
-			'sello_columns'      => array(),
+			'include_drafts'          => 0,
+			'include_private'         => 0,
+			'include_outofstock'      => 0,
+			'optional_columns'        => array(),
+			'custom_attribute'        => '',
+			'custom_attributes'       => array(),
+			'sello_columns'           => array(),
+			'sello_vintage_condition' => 'Gott skick',
+			'sello_default_condition' => 'Oanvänt',
 		);
 
 		return wp_parse_args( (array) get_option( self::OPTION_KEY, array() ), $defaults );
@@ -252,6 +254,8 @@ class WOO_Kustom_Export {
 				'Brand'                   => __( 'Varumärke', 'woo-kustom-export' ),
 				'Group sku'               => __( 'Grupp-SKU (huvudprodukt)', 'woo-kustom-export' ),
 				'Group type'              => __( 'Grupptyp (color, size, model)', 'woo-kustom-export' ),
+				'Property Skick'          => __( 'Tradera Skick (Property Skick)', 'woo-kustom-export' ),
+				'Property Är begagnad'    => __( 'Tradera Är begagnad (Property Är begagnad)', 'woo-kustom-export' ),
 			);
 			return isset( $sello_labels[ $column ] ) ? $sello_labels[ $column ] : $column;
 		}
@@ -1620,11 +1624,11 @@ class WOO_Kustom_Export {
 								<span class="material-symbols-outlined text-[16px]">tune</span>
 							</span>
 							<h2 class="font-headline-lg text-headline-lg text-on-surface m-0 tracking-tight font-bold">
-								<?php esc_html_e( 'Välj kolumner för Sello-exporten', 'woo-kustom-export' ); ?>
+								<?php esc_html_e( 'Inställningar & kolumnval för Sello-exporten', 'woo-kustom-export' ); ?>
 							</h2>
 						</div>
 						<p class="font-body-md text-body-md text-on-surface-variant mt-1 mb-0">
-							<?php esc_html_e( 'Som standard är alla 12 kolumner ibockade. Avmarkera de fält du inte vill inkludera i din Excel- (.xlsx) eller CSV-fil.', 'woo-kustom-export' ); ?>
+							<?php esc_html_e( 'Anpassa Tradera-egenskaper och välj vilka kolumner som ska ingå i din Excel- (.xlsx) eller CSV-fil.', 'woo-kustom-export' ); ?>
 						</p>
 					</div>
 
@@ -1638,12 +1642,63 @@ class WOO_Kustom_Export {
 						</button>
 						<button type="submit" class="px-3.5 py-1.5 text-xs font-semibold rounded bg-primary text-white hover:opacity-90 transition-opacity cursor-pointer border-0 shadow-sm inline-flex items-center gap-1.5" id="selloSaveBtn">
 							<span class="material-symbols-outlined text-[15px]">save</span>
-							<span><?php esc_html_e( 'Spara kolumnval', 'woo-kustom-export' ); ?></span>
+							<span><?php esc_html_e( 'Spara inställningar', 'woo-kustom-export' ); ?></span>
 						</button>
 					</div>
 				</div>
 
-				<!-- Grid med de 12 valbara kolumnerna -->
+				<!-- Tradera Skick & Egenskapsmappning -->
+				<div class="bg-surface-container-low/70 rounded-xl p-space-lg mb-space-lg border border-slate-200">
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+						<div class="flex items-center gap-2">
+							<span class="material-symbols-outlined text-[20px] text-primary">verified</span>
+							<h3 class="font-title-md text-title-md text-on-surface m-0 font-bold text-slate-900">
+								<?php esc_html_e( 'Tradera Skick & Egenskapsmappning', 'woo-kustom-export' ); ?>
+							</h3>
+						</div>
+						<span class="inline-flex items-center gap-1 text-[11px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full self-start sm:self-auto">
+							<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+							<?php esc_html_e( 'Löser Traderas obligatoriska krav i Sello', 'woo-kustom-export' ); ?>
+						</span>
+					</div>
+					<p class="text-xs text-slate-600 mb-space-md max-w-3xl leading-relaxed">
+						<?php esc_html_e( 'Tradera kräver att egenskapen "Skick" (Property Skick) alltid anges. Produkter med WooCommerce-attributet "Ny" mappas automatiskt till "Oanvänt" (Är begagnad: No). Välj nedan hur "Vintage" och produkter utan angivet skick ska hanteras:', 'woo-kustom-export' ); ?>
+					</p>
+
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md max-w-3xl pt-space-xs">
+						<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
+							<label class="block font-semibold text-xs text-slate-900 mb-1" for="sello_vintage_condition">
+								<?php esc_html_e( 'Mappa "Vintage" till Tradera-skick:', 'woo-kustom-export' ); ?>
+							</label>
+							<select name="woo_kustom_export[sello_vintage_condition]" id="sello_vintage_condition" class="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-primary focus:border-primary">
+								<option value="Gott skick" <?php selected( ! empty( $settings['sello_vintage_condition'] ) ? $settings['sello_vintage_condition'] : 'Gott skick', 'Gott skick' ); ?>><?php esc_html_e( 'Gott skick (Rekommenderas)', 'woo-kustom-export' ); ?></option>
+								<option value="Mycket gott skick" <?php selected( ! empty( $settings['sello_vintage_condition'] ) ? $settings['sello_vintage_condition'] : '', 'Mycket gott skick' ); ?>><?php esc_html_e( 'Mycket gott skick', 'woo-kustom-export' ); ?></option>
+								<option value="Okej skick" <?php selected( ! empty( $settings['sello_vintage_condition'] ) ? $settings['sello_vintage_condition'] : '', 'Okej skick' ); ?>><?php esc_html_e( 'Okej skick', 'woo-kustom-export' ); ?></option>
+								<option value="Defekt" <?php selected( ! empty( $settings['sello_vintage_condition'] ) ? $settings['sello_vintage_condition'] : '', 'Defekt' ); ?>><?php esc_html_e( 'Defekt', 'woo-kustom-export' ); ?></option>
+							</select>
+							<span class="text-[11px] text-slate-500 mt-1 block"><?php esc_html_e( 'Sätter automatiskt "Property Är begagnad" till Yes.', 'woo-kustom-export' ); ?></span>
+						</div>
+
+						<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
+							<label class="block font-semibold text-xs text-slate-900 mb-1" for="sello_default_condition">
+								<?php esc_html_e( 'Standard om produkt saknar skick-attribut:', 'woo-kustom-export' ); ?>
+							</label>
+							<select name="woo_kustom_export[sello_default_condition]" id="sello_default_condition" class="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-primary focus:border-primary">
+								<option value="Oanvänt" <?php selected( ! empty( $settings['sello_default_condition'] ) ? $settings['sello_default_condition'] : 'Oanvänt', 'Oanvänt' ); ?>><?php esc_html_e( 'Oanvänt (Ny produkt / Är begagnad: No)', 'woo-kustom-export' ); ?></option>
+								<option value="Gott skick" <?php selected( ! empty( $settings['sello_default_condition'] ) ? $settings['sello_default_condition'] : '', 'Gott skick' ); ?>><?php esc_html_e( 'Gott skick (Vintage/Begagnad / Är begagnad: Yes)', 'woo-kustom-export' ); ?></option>
+								<option value="Mycket gott skick" <?php selected( ! empty( $settings['sello_default_condition'] ) ? $settings['sello_default_condition'] : '', 'Mycket gott skick' ); ?>><?php esc_html_e( 'Mycket gott skick (Är begagnad: Yes)', 'woo-kustom-export' ); ?></option>
+							</select>
+							<span class="text-[11px] text-slate-500 mt-1 block"><?php esc_html_e( 'Fallback om varken Ny eller Vintage angivits i WooCommerce.', 'woo-kustom-export' ); ?></span>
+						</div>
+					</div>
+				</div>
+
+				<div class="mb-space-sm">
+					<h3 class="font-title-sm text-title-sm font-semibold text-slate-900 m-0"><?php esc_html_e( 'Kolumner i exportfilen', 'woo-kustom-export' ); ?></h3>
+					<p class="text-xs text-slate-500 m-0 mt-0.5"><?php esc_html_e( 'Avmarkera kolumner du inte vill inkludera i din Sello-fil.', 'woo-kustom-export' ); ?></p>
+				</div>
+
+				<!-- Grid med alla valbara kolumner -->
 				<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-space-md">
 					<?php
 					foreach ( $all_cols_meta as $col_key => $col_meta ) :
@@ -1760,6 +1815,24 @@ class WOO_Kustom_Export {
 									<td class="py-2.5 px-3 text-slate-700 whitespace-nowrap">
 										<?php if ( '' !== $val ) : ?>
 											<span class="bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded font-medium"><?php echo esc_html( $val ); ?></span>
+										<?php else : ?>
+											<span class="text-slate-400">—</span>
+										<?php endif; ?>
+									</td>
+									<?php elseif ( 'Property Skick' === $col_name ) : ?>
+									<td class="py-2.5 px-3 text-slate-800 whitespace-nowrap">
+										<?php if ( '' !== $val ) : ?>
+											<span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-medium"><?php echo esc_html( $val ); ?></span>
+										<?php else : ?>
+											<span class="text-slate-400">—</span>
+										<?php endif; ?>
+									</td>
+									<?php elseif ( 'Property Är begagnad' === $col_name ) : ?>
+									<td class="py-2.5 px-3 text-slate-700 whitespace-nowrap font-mono text-center">
+										<?php if ( 'Yes' === $val ) : ?>
+											<span class="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-semibold text-[11px]"><?php echo esc_html( $val ); ?></span>
+										<?php elseif ( 'No' === $val ) : ?>
+											<span class="bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-semibold text-[11px]"><?php echo esc_html( $val ); ?></span>
 										<?php else : ?>
 											<span class="text-slate-400">—</span>
 										<?php endif; ?>
@@ -2640,7 +2713,10 @@ class WOO_Kustom_Export {
 			}
 		}
 
-		$sello_columns = isset( $existing['sello_columns'] ) && is_array( $existing['sello_columns'] ) ? $existing['sello_columns'] : array();
+		$sello_columns           = isset( $existing['sello_columns'] ) && is_array( $existing['sello_columns'] ) ? $existing['sello_columns'] : array();
+		$sello_vintage_condition = isset( $existing['sello_vintage_condition'] ) ? $existing['sello_vintage_condition'] : 'Gott skick';
+		$sello_default_condition = isset( $existing['sello_default_condition'] ) ? $existing['sello_default_condition'] : 'Oanvänt';
+
 		if ( 'sello' === $return_tab ) {
 			$all_sello_cols = WOO_Sello_CSV_Generator::get_all_columns_list();
 			$sello_columns  = array();
@@ -2651,16 +2727,26 @@ class WOO_Kustom_Export {
 					}
 				}
 			}
+
+			$allowed_conditions = array( 'Oanvänt', 'Mycket gott skick', 'Gott skick', 'Okej skick', 'Defekt' );
+			if ( isset( $raw['sello_vintage_condition'] ) && in_array( $raw['sello_vintage_condition'], $allowed_conditions, true ) ) {
+				$sello_vintage_condition = sanitize_text_field( $raw['sello_vintage_condition'] );
+			}
+			if ( isset( $raw['sello_default_condition'] ) && in_array( $raw['sello_default_condition'], $allowed_conditions, true ) ) {
+				$sello_default_condition = sanitize_text_field( $raw['sello_default_condition'] );
+			}
 		}
 
 		$settings = array(
-			'include_drafts'     => $include_drafts,
-			'include_private'    => $include_private,
-			'include_outofstock' => $include_outofstock,
-			'optional_columns'   => $optional_columns,
-			'custom_attribute'   => ! empty( $custom_attributes ) ? reset( $custom_attributes ) : '',
-			'custom_attributes'  => $custom_attributes,
-			'sello_columns'      => $sello_columns,
+			'include_drafts'          => $include_drafts,
+			'include_private'         => $include_private,
+			'include_outofstock'      => $include_outofstock,
+			'optional_columns'        => $optional_columns,
+			'custom_attribute'        => ! empty( $custom_attributes ) ? reset( $custom_attributes ) : '',
+			'custom_attributes'       => $custom_attributes,
+			'sello_columns'           => $sello_columns,
+			'sello_vintage_condition' => $sello_vintage_condition,
+			'sello_default_condition' => $sello_default_condition,
 		);
 
 		update_option( self::OPTION_KEY, $settings, false );

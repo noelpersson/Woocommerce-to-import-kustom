@@ -25,7 +25,8 @@ Funktioner:
 * Kustom: fyra obligatoriska kolumner (product_name, price_including_vat, vat_rate, currency) plus valfria WooCommerce-fält och dynamiska attributkolumner.
 * Kustom fältväljare: Välj fritt bland alla standardfält i WooCommerce (SKU, Produkt-ID, Föräldra-SKU, Produkttyp, Ordinarie pris, Reapris, Pris exkl. moms, Momsklass, Lagersaldo, Lagerstatus, Lagerhantering, EAN/Streckkod, Beskrivning, Kort beskrivning, Kategorier, Taggar, Vikt, Längd, Bredd, Höjd, Fraktklass, Bild-URL, Galleribilder).
 * Kustom flerval av attribut: Välj flera eller alla registrerade produktattribut som egna kolumner med en-och-en kryssrutor samt "Markera alla"-knappar.
-* Sello för Tradera: Exakt 12 kolumner för Tradera butiksobjekt (Sku, Standard name sv, Standard description sv, Tradera price store, Purchase price, Quantity, Tax, Weight, Images, Brand, Group sku, Group type).
+* Sello för Tradera: 14 kolumner för Tradera butiksobjekt (Sku, Standard name sv, Standard description sv, Tradera price store, Purchase price, Quantity, Tax, Weight, Images, Brand, Group sku, Group type, Property Skick, Property Är begagnad).
+* Automatisk Tradera skickmappning: Mappar automatiskt WooCommerce "Ny" till "Oanvänt" (Är begagnad: No) och "Vintage" till "Gott skick" (eller valbar nivå) (Är begagnad: Yes), vilket löser Traderas obligatoriska krav i Sello.
 * Tradera butikspris: Fast pris i heltal utan valuta i Tradera price store (t.ex. 495). Price och Calculate utelämnas för att undvika oönskad prisberäkning i Sello.
 * Ren textbeskrivning: HTML-taggar och kortkoder rensas bort samtidigt som meningsfulla styckebrytningar bibehålls.
 * Högupplösta bildlänkar: Samtliga bildlänkar tvingas till fullständiga https://-URL:er separerade med komma.
