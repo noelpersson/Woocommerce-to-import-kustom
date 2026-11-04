@@ -109,6 +109,10 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 		header( 'Content-Type: text/csv; charset=utf-8' );
 		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
 
+		while ( ob_get_level() > 0 ) {
+			ob_end_clean();
+		}
+
 		$out = fopen( 'php://output', 'wb' );
 		if ( ! $out ) {
 			wp_die( esc_html__( 'Kunde inte öppna utdataström för CSV-exporten.', 'woo-kustom-export' ) );
@@ -181,7 +185,11 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 			if ( $product->is_type( 'variable' ) ) {
 				yield from $this->get_variable_rows_iter( $product, $template );
 			} elseif ( $this->include_product( $product ) ) {
-				yield array_merge( $template, $this->build_row( $product, $product ) );
+				$row = $template;
+				foreach ( $this->build_row( $product, $product ) as $k => $v ) {
+					$row[ $k ] = $v;
+				}
+				yield $row;
 			}
 		}
 	}
@@ -258,7 +266,8 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 	 * @return bool
 	 */
 	protected function include_product( $product ) {
-		if ( 'instock' === $product->get_stock_status() ) {
+		$is_in_stock = method_exists( $product, 'is_in_stock' ) ? $product->is_in_stock() : in_array( $product->get_stock_status(), array( 'instock', 'onbackorder' ), true );
+		if ( $is_in_stock ) {
 			return true;
 		}
 		return ! empty( $this->settings['include_outofstock'] );

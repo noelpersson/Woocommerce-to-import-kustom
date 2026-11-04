@@ -4,7 +4,7 @@ Tags: woocommerce, kustom, sello, export, csv, excel, products, tradera
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.5.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,8 +25,11 @@ Funktioner:
 * Kustom: fyra obligatoriska kolumner (product_name, price_including_vat, vat_rate, currency) plus valfria WooCommerce-fält och dynamiska attributkolumner.
 * Kustom fältväljare: Välj fritt bland alla standardfält i WooCommerce (SKU, Produkt-ID, Föräldra-SKU, Produkttyp, Ordinarie pris, Reapris, Pris exkl. moms, Momsklass, Lagersaldo, Lagerstatus, Lagerhantering, EAN/Streckkod, Beskrivning, Kort beskrivning, Kategorier, Taggar, Vikt, Längd, Bredd, Höjd, Fraktklass, Bild-URL, Galleribilder).
 * Kustom flerval av attribut: Välj flera eller alla registrerade produktattribut som egna kolumner med en-och-en kryssrutor samt "Markera alla"-knappar.
-* Sello för Tradera: 14 kolumner för Tradera butiksobjekt (Sku, Standard name sv, Standard description sv, Tradera price store, Purchase price, Quantity, Tax, Weight, Images, Brand, Group sku, Group type, Property Skick, Property Är begagnad).
+* Sello för Tradera: 13 kolumner för Tradera butiksobjekt (Sku, Standard name sv, Standard description sv, Tradera price store, Purchase price, Quantity, Tax, Weight, Images, Brand, Group sku, Group type, Condition).
+* Sello Condition & Tradera skick: Ersätter Property Skick med Sellos officiella skickkolumn Condition (new eller used). Mappar automatiskt nya artiklar till new och vintage/begagnat till used, och lägger till det specifika skicket (t.ex. Gott skick) i beskrivningen så köpare ser det.
+* Sello urvalsfilter för Tradera: Filtrera enkelt på skick (t.ex. enbart Vintage/begagnat eller Nya produkter) och/eller begränsa exporten till specifika varumärken via ett sökbart varumärkesfilter.
 * Automatisk Tradera skickmappning: Mappar automatiskt WooCommerce "Ny" till "Oanvänt" (Är begagnad: No) och "Vintage" till "Gott skick" (eller valbar nivå) (Är begagnad: Yes), vilket löser Traderas obligatoriska krav i Sello.
+* Tradera-länkskydd: Tar automatiskt och snyggt bort HTML-länkar, webbadresser och hänvisningar till Glasprinsen eller externa butiker så att annonserna godkänns på Tradera utan risk för regelbrott.
 * Tradera butikspris: Fast pris i heltal utan valuta i Tradera price store (t.ex. 495). Price och Calculate utelämnas för att undvika oönskad prisberäkning i Sello.
 * Ren textbeskrivning: HTML-taggar och kortkoder rensas bort samtidigt som meningsfulla styckebrytningar bibehålls.
 * Högupplösta bildlänkar: Samtliga bildlänkar tvingas till fullständiga https://-URL:er separerade med komma.
@@ -56,6 +59,16 @@ Kustom: importera filen via Kustom POS produktimport. VARNING: befintliga produk
 Sello: logga in i Sello, öppna menyn uppe till vänster, gå till Import / export, välj Excel i Import-sektionen och välj "Skapa nya produkter från min fil" eller "Uppdatera produkter med min fil".
 
 == Changelog ==
+
+= 1.5.2 =
+* Åtgärdat Sello Excel-importfel: Ersatt ogiltiga "Property Skick" och "Property Är begagnad" med Sellos officiella standardskickfält "Condition" (new / used).
+* Automatisk Tradera-styrning: Nya artiklar ("Oanvänt") sätts till Condition: new och vintage/begagnat sätts till Condition: used.
+* Detaljerat skick i beskrivningen: Den specifika skickgraderingen (Oanvänt, Gott skick, Mycket gott skick etc.) inkluderas tydligt i beskrivningstexten för köpare på Tradera.
+
+= 1.5.1 =
+* Tradera-länkskydd och automatisk rensning av länkar: Tar bort HTML-länkar, webbadresser (t.ex. glasprinsen.se) och hänvisningar till butiken/webbshoppen på ett snyggt sätt i både beskrivning och namn vid Sello/Tradera-export.
+* Bevarar läsbarhet: Beskrivande ankartexter (som modell- och serienamn) bevaras i meningen medan hyperlänkar och webbadresser skalas av, samtidigt som tomma parenteser, hängande skiljetecken och ensamma butiksuppmaningar raderas helt.
+* Konfigurerbart i Sello-inställningarna: Länkskyddet är aktiverat som standard och administratören kan enkelt justera eller lägga till egna domäner och nyckelord.
 
 = 1.5.0 =
 * Sello & Tradera-kompatibilitet: Ny kolumnstruktur med exakt 12 kolumner (Sku, Standard name sv, Standard description sv, Tradera price store, Purchase price, Quantity, Tax, Weight, Images, Brand, Group sku, Group type).

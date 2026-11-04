@@ -137,15 +137,23 @@ class WOO_Kustom_Export {
 	 */
 	public static function get_settings() {
 		$defaults = array(
-			'include_drafts'          => 0,
-			'include_private'         => 0,
-			'include_outofstock'      => 0,
-			'optional_columns'        => array(),
-			'custom_attribute'        => '',
-			'custom_attributes'       => array(),
-			'sello_columns'           => array(),
-			'sello_vintage_condition' => 'Gott skick',
-			'sello_default_condition' => 'Oanvänt',
+			'include_drafts'              => 0,
+			'include_private'             => 0,
+			'include_outofstock'          => 0,
+			'optional_columns'            => array(),
+			'optional_columns_configured' => 0,
+			'custom_attribute'            => '',
+			'custom_attributes'           => array(),
+			'sello_columns'               => array(),
+			'sello_columns_configured'    => 0,
+			'sello_vintage_condition'     => 'Gott skick',
+			'sello_default_condition'     => 'Oanvänt',
+			'sello_strip_links'           => 1,
+			'sello_strip_domains'         => 'glasprinsen.se, glasprinsen',
+			'sello_filter_condition_mode' => 'all',
+			'sello_filter_conditions'     => array(),
+			'sello_filter_brand_mode'     => 'all',
+			'sello_filter_brands'         => array(),
 		);
 
 		return wp_parse_args( (array) get_option( self::OPTION_KEY, array() ), $defaults );
@@ -254,8 +262,7 @@ class WOO_Kustom_Export {
 				'Brand'                   => __( 'Varumärke', 'woo-kustom-export' ),
 				'Group sku'               => __( 'Grupp-SKU (huvudprodukt)', 'woo-kustom-export' ),
 				'Group type'              => __( 'Grupptyp (color, size, model)', 'woo-kustom-export' ),
-				'Property Skick'          => __( 'Tradera Skick (Property Skick)', 'woo-kustom-export' ),
-				'Property Är begagnad'    => __( 'Tradera Är begagnad (Property Är begagnad)', 'woo-kustom-export' ),
+				'Condition'               => __( 'Produktens skick (Condition: new / used)', 'woo-kustom-export' ),
 			);
 			return isset( $sello_labels[ $column ] ) ? $sello_labels[ $column ] : $column;
 		}
@@ -1163,7 +1170,7 @@ class WOO_Kustom_Export {
 		);
 
 		// Avgör om inställningar sparats tidigare
-		$has_saved_settings = ! empty( $settings['optional_columns'] );
+		$has_saved_settings = ! empty( $settings['optional_columns_configured'] ) || ! empty( $settings['optional_columns'] );
 
 		// Extra kolumner för utfällbar sektion
 		$more_columns = array();
@@ -1193,7 +1200,7 @@ class WOO_Kustom_Export {
 						</p>
 					</div>
 					<div class="flex items-center gap-space-md shrink-0">
-						<button class="relative group inline-flex items-center justify-center gap-space-sm font-label-md text-label-md text-on-primary bg-primary-container hover:bg-primary px-space-xl py-3 rounded-lg shadow-md transition-all active:scale-[0.99] cursor-pointer border-0" id="downloadCsvBtn" type="button" data-download-url="<?php echo esc_url( $download_url ); ?>">
+						<button class="relative group inline-flex items-center justify-center gap-space-sm font-label-md text-label-md text-on-primary bg-primary-container hover:bg-primary px-space-xl py-3 rounded-lg shadow-md transition-all active:scale-[0.99] cursor-pointer border-0" id="kustomDownloadCsvBtn" type="button" data-download-url="<?php echo esc_url( $download_url ); ?>">
 							<span class="material-symbols-outlined text-[20px] transition-transform group-hover:translate-y-0.5">download</span>
 							<span class="font-semibold tracking-wide"><?php esc_html_e( 'Ladda ner Kustom POS CSV', 'woo-kustom-export' ); ?></span>
 						</button>
@@ -1447,7 +1454,36 @@ class WOO_Kustom_Export {
 		$today_date        = gmdate( 'Y-m-d' );
 		$all_cols_meta     = WOO_Sello_CSV_Generator::get_supported_columns_meta();
 		$saved_sello_cols  = isset( $settings['sello_columns'] ) && is_array( $settings['sello_columns'] ) ? $settings['sello_columns'] : array();
-		$has_saved_cols    = ! empty( $saved_sello_cols );
+		// Bakåtkompatibilitet: om användaren tidigare sparat kolumner med Property Skick/Är begagnad, aktivera Condition
+		if ( ! isset( $saved_sello_cols['Condition'] ) && ( ! empty( $saved_sello_cols['Property Skick'] ) || ! empty( $saved_sello_cols['Property Är begagnad'] ) ) ) {
+			$saved_sello_cols['Condition'] = 1;
+		}
+		$has_saved_cols    = ! empty( $settings['sello_columns_configured'] ) || ! empty( $saved_sello_cols );
+
+		// Urvalsfilter för Sello & Tradera
+		$cond_mode        = ! empty( $settings['sello_filter_condition_mode'] ) ? $settings['sello_filter_condition_mode'] : 'all';
+		$selected_conds   = isset( $settings['sello_filter_conditions'] ) && is_array( $settings['sello_filter_conditions'] ) ? $settings['sello_filter_conditions'] : array();
+		$brand_mode       = ! empty( $settings['sello_filter_brand_mode'] ) ? $settings['sello_filter_brand_mode'] : 'all';
+		$selected_brands  = isset( $settings['sello_filter_brands'] ) && is_array( $settings['sello_filter_brands'] ) ? $settings['sello_filter_brands'] : array();
+		$available_brands = WOO_Sello_CSV_Generator::get_available_store_brands();
+
+		foreach ( $selected_brands as $sb ) {
+			if ( ! isset( $available_brands[ $sb ] ) ) {
+				$available_brands[ $sb ] = 0;
+			}
+		}
+
+		$active_filter_pills = array();
+		if ( 'vintage_only' === $cond_mode ) {
+			$active_filter_pills[] = __( 'Endast Vintage / Begagnat', 'woo-kustom-export' );
+		} elseif ( 'new_only' === $cond_mode ) {
+			$active_filter_pills[] = __( 'Endast Nya / Oanvända artiklar', 'woo-kustom-export' );
+		} elseif ( 'custom' === $cond_mode && ! empty( $selected_conds ) ) {
+			$active_filter_pills[] = sprintf( __( '%d Tradera-skick valda', 'woo-kustom-export' ), count( $selected_conds ) );
+		}
+		if ( 'include_only' === $brand_mode && ! empty( $selected_brands ) ) {
+			$active_filter_pills[] = sprintf( __( '%d utvalda varumärken', 'woo-kustom-export' ), count( $selected_brands ) );
+		}
 		?>
 		<div class="flex flex-col w-full">
 			<!-- Top Bar Backlink -->
@@ -1494,10 +1530,24 @@ class WOO_Kustom_Export {
 								</div>
 							</div>
 						</div>
+
+						<?php if ( ! empty( $active_filter_pills ) ) : ?>
+						<div class="flex items-center flex-wrap gap-2 pt-2">
+							<span class="text-xs font-semibold text-sky-900 flex items-center gap-1">
+								<span class="material-symbols-outlined text-[16px] text-sky-600">filter_alt</span>
+								<?php esc_html_e( 'Aktiva filter:', 'woo-kustom-export' ); ?>
+							</span>
+							<?php foreach ( $active_filter_pills as $pill_text ) : ?>
+							<span class="inline-flex items-center text-xs bg-sky-100 text-sky-800 font-medium px-2.5 py-0.5 rounded-full border border-sky-200">
+								<?php echo esc_html( $pill_text ); ?>
+							</span>
+							<?php endforeach; ?>
+						</div>
+						<?php endif; ?>
 					</div>
 					<!-- Action Panel & Download triggers -->
 					<div class="flex flex-col sm:flex-row xl:flex-col gap-space-sm min-w-[280px]">
-						<a href="<?php echo esc_url( $xlsx_url ); ?>" class="relative group inline-flex items-center justify-center gap-space-sm bg-tertiary-container text-on-tertiary hover:bg-tertiary px-space-lg py-3 rounded-lg shadow-sm transition-all duration-200 cursor-pointer no-underline text-white" id="downloadXlsxBtn" data-count="<?php echo esc_attr( number_format_i18n( $total_rows ) ); ?>" data-filename="sello-tradera-products-<?php echo esc_attr( $today_date ); ?>.xlsx">
+						<a href="<?php echo esc_url( $xlsx_url ); ?>" class="relative group inline-flex items-center justify-center gap-space-sm bg-tertiary-container text-on-tertiary hover:bg-tertiary px-space-lg py-3 rounded-lg shadow-sm transition-all duration-200 cursor-pointer no-underline text-white" id="selloDownloadXlsxBtn" data-count="<?php echo esc_attr( number_format_i18n( $total_rows ) ); ?>" data-filename="sello-tradera-products-<?php echo esc_attr( $today_date ); ?>.xlsx">
 							<span class="material-symbols-outlined text-[22px]">table_view</span>
 							<div class="flex flex-col text-left">
 								<span class="font-title-md text-title-md font-semibold leading-tight text-white"><?php esc_html_e( 'Ladda ner Sello Excel', 'woo-kustom-export' ); ?></span>
@@ -1505,7 +1555,7 @@ class WOO_Kustom_Export {
 							</div>
 							<span class="material-symbols-outlined text-[18px] ml-auto opacity-70 group-hover:translate-y-0.5 transition-transform text-white">download</span>
 						</a>
-						<a href="<?php echo esc_url( $csv_url ); ?>" class="inline-flex items-center justify-center gap-space-sm bg-surface-container hover:bg-surface-container-high text-on-surface px-space-lg py-2.5 rounded-lg transition-colors cursor-pointer no-underline text-slate-800" id="downloadCsvBtn" data-filename="sello-tradera-products-<?php echo esc_attr( $today_date ); ?>.csv">
+						<a href="<?php echo esc_url( $csv_url ); ?>" class="inline-flex items-center justify-center gap-space-sm bg-surface-container hover:bg-surface-container-high text-on-surface px-space-lg py-2.5 rounded-lg transition-colors cursor-pointer no-underline text-slate-800" id="selloDownloadCsvBtn" data-filename="sello-tradera-products-<?php echo esc_attr( $today_date ); ?>.csv">
 							<span class="material-symbols-outlined text-[20px] text-on-surface-variant">description</span>
 							<span class="font-label-md text-label-md font-semibold"><?php esc_html_e( 'Ladda ner Sello CSV', 'woo-kustom-export' ); ?></span>
 							<span class="font-code-sm text-code-sm text-on-surface-variant ml-auto">UTF-8 • .csv</span>
@@ -1513,7 +1563,7 @@ class WOO_Kustom_Export {
 						<div class="flex items-center text-on-surface-variant px-space-xs pt-1">
 							<span class="font-label-sm text-label-sm flex items-center gap-1">
 								<span class="material-symbols-outlined text-[14px] text-tertiary">verified</span>
-								<?php esc_html_e( '12 Tradera-kolumner utan Price/Calculate', 'woo-kustom-export' ); ?>
+								<?php esc_html_e( '14 Tradera-kolumner utan Price/Calculate', 'woo-kustom-export' ); ?>
 							</span>
 						</div>
 					</div>
@@ -1647,22 +1697,181 @@ class WOO_Kustom_Export {
 					</div>
 				</div>
 
+				<!-- Tradera Exportfilter (Urval & Begränsning) -->
+				<div class="bg-surface-container-low/70 rounded-xl p-space-lg mb-space-lg border border-slate-200">
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+						<div class="flex items-center gap-2">
+							<span class="material-symbols-outlined text-[20px] text-primary">filter_alt</span>
+							<h3 class="font-title-md text-title-md text-on-surface m-0 font-bold text-slate-900">
+								<?php esc_html_e( 'Tradera Exportfilter (Urval & Begränsning)', 'woo-kustom-export' ); ?>
+							</h3>
+						</div>
+						<span class="inline-flex items-center gap-1 text-[11px] bg-sky-100 text-sky-800 font-semibold px-2.5 py-0.5 rounded-full self-start sm:self-auto">
+							<span class="w-1.5 h-1.5 rounded-full bg-sky-600"></span>
+							<?php esc_html_e( 'Isolerat till Sello & Tradera (påverkar ej Kustom POS)', 'woo-kustom-export' ); ?>
+						</span>
+					</div>
+					<p class="text-xs text-slate-600 mb-space-md max-w-3xl leading-relaxed">
+						<?php esc_html_e( 'Välj vilka artiklar som ska exporteras till Tradera. Ni kan enkelt begränsa exporten till enbart Vintage/begagnat och/eller specifika varumärken.', 'woo-kustom-export' ); ?>
+					</p>
+
+					<div class="grid grid-cols-1 lg:grid-cols-2 gap-space-lg">
+						<!-- Filter 1: Skick & Vintage -->
+						<div class="bg-white p-4 rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between">
+							<div>
+								<div class="flex items-center justify-between mb-2">
+									<label class="block font-semibold text-xs text-slate-900 flex items-center gap-1.5">
+										<span class="material-symbols-outlined text-[16px] text-slate-600">history_edu</span>
+										<?php esc_html_e( 'Skick- & Vintagefilter för Tradera:', 'woo-kustom-export' ); ?>
+									</label>
+									<?php if ( 'vintage_only' === $cond_mode ) : ?>
+									<span class="text-[10px] bg-amber-100 text-amber-900 font-bold px-1.5 py-0.5 rounded uppercase tracking-wider"><?php esc_html_e( 'Vintage aktivt', 'woo-kustom-export' ); ?></span>
+									<?php endif; ?>
+								</div>
+
+								<div class="flex flex-col gap-2 mt-2">
+									<label class="flex items-start gap-2 cursor-pointer text-xs text-slate-800">
+										<input type="radio" name="woo_kustom_export[sello_filter_condition_mode]" value="all" class="mt-0.5 js-sello-cond-radio" <?php checked( 'all' === $cond_mode ); ?>>
+										<div>
+											<span class="font-semibold text-slate-900"><?php esc_html_e( 'Alla produkter (Nytt & Vintage)', 'woo-kustom-export' ); ?></span>
+											<p class="text-[11px] text-slate-500 m-0"><?php esc_html_e( 'Exportera samtliga produkter oavsett skick.', 'woo-kustom-export' ); ?></p>
+										</div>
+									</label>
+
+									<label class="flex items-start gap-2 cursor-pointer text-xs text-slate-800">
+										<input type="radio" name="woo_kustom_export[sello_filter_condition_mode]" value="vintage_only" class="mt-0.5 js-sello-cond-radio" <?php checked( 'vintage_only' === $cond_mode ); ?>>
+										<div>
+											<span class="font-semibold text-slate-900 flex items-center gap-1">
+												<?php esc_html_e( 'Endast Vintage & Begagnat', 'woo-kustom-export' ); ?>
+												<span class="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-1 rounded font-normal"><?php esc_html_e( 'Tradera Second Hand', 'woo-kustom-export' ); ?></span>
+											</span>
+											<p class="text-[11px] text-slate-500 m-0"><?php esc_html_e( 'Exkluderar alla nya artiklar ("Oanvänt"). Endast artiklar märkta med Vintage eller begagnat skick exporteras.', 'woo-kustom-export' ); ?></p>
+										</div>
+									</label>
+
+									<label class="flex items-start gap-2 cursor-pointer text-xs text-slate-800">
+										<input type="radio" name="woo_kustom_export[sello_filter_condition_mode]" value="new_only" class="mt-0.5 js-sello-cond-radio" <?php checked( 'new_only' === $cond_mode ); ?>>
+										<div>
+											<span class="font-semibold text-slate-900"><?php esc_html_e( 'Endast Nya & Oanvända artiklar', 'woo-kustom-export' ); ?></span>
+											<p class="text-[11px] text-slate-500 m-0"><?php esc_html_e( 'Exkluderar alla vintage- och begagnade artiklar.', 'woo-kustom-export' ); ?></p>
+										</div>
+									</label>
+
+									<label class="flex items-start gap-2 cursor-pointer text-xs text-slate-800">
+										<input type="radio" name="woo_kustom_export[sello_filter_condition_mode]" value="custom" class="mt-0.5 js-sello-cond-radio" <?php checked( 'custom' === $cond_mode ); ?>>
+										<div>
+											<span class="font-semibold text-slate-900"><?php esc_html_e( 'Anpassat urval av Tradera-skick', 'woo-kustom-export' ); ?></span>
+											<p class="text-[11px] text-slate-500 m-0"><?php esc_html_e( 'Välj manuellt vilka skickgraderingar som ska inkluderas.', 'woo-kustom-export' ); ?></p>
+										</div>
+									</label>
+								</div>
+
+								<!-- Anpassade skick-kryssrutor (visas om custom är valt) -->
+								<div id="selloCustomCondWrap" class="<?php echo 'custom' === $cond_mode ? '' : 'hidden'; ?> mt-3 pt-3 border-t border-slate-200 bg-slate-50/70 p-2.5 rounded">
+									<span class="block text-[11px] font-semibold text-slate-700 mb-1.5"><?php esc_html_e( 'Välj tillåtna Tradera-skick:', 'woo-kustom-export' ); ?></span>
+									<div class="grid grid-cols-2 gap-1.5 text-xs">
+										<?php
+										$tradera_all_conditions = array( 'Oanvänt', 'Mycket gott skick', 'Gott skick', 'Okej skick', 'Defekt' );
+										foreach ( $tradera_all_conditions as $cond_name ) :
+											$is_cond_checked = in_array( $cond_name, $selected_conds, true );
+										?>
+										<label class="flex items-center gap-1.5 cursor-pointer text-slate-700">
+											<input type="checkbox" name="woo_kustom_export[sello_filter_conditions][]" value="<?php echo esc_attr( $cond_name ); ?>" class="w-3.5 h-3.5 rounded text-primary accent-primary" <?php checked( $is_cond_checked ); ?>>
+											<span><?php echo esc_html( $cond_name ); ?></span>
+										</label>
+										<?php endforeach; ?>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Filter 2: Varumärken -->
+						<div class="bg-white p-4 rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between">
+							<div>
+								<div class="flex items-center justify-between mb-2">
+									<label class="block font-semibold text-xs text-slate-900 flex items-center gap-1.5">
+										<span class="material-symbols-outlined text-[16px] text-slate-600">sell</span>
+										<?php esc_html_e( 'Varumärkesfilter för Tradera:', 'woo-kustom-export' ); ?>
+									</label>
+									<?php if ( 'include_only' === $brand_mode && ! empty( $selected_brands ) ) : ?>
+									<span class="text-[10px] bg-sky-100 text-sky-900 font-bold px-1.5 py-0.5 rounded uppercase tracking-wider">
+										<?php printf( esc_html__( '%d märk(en) aktiva', 'woo-kustom-export' ), count( $selected_brands ) ); ?>
+									</span>
+									<?php endif; ?>
+								</div>
+
+								<div class="flex flex-col gap-2 mt-2">
+									<label class="flex items-start gap-2 cursor-pointer text-xs text-slate-800">
+										<input type="radio" name="woo_kustom_export[sello_filter_brand_mode]" value="all" class="mt-0.5 js-sello-brand-radio" <?php checked( 'all' === $brand_mode ); ?>>
+										<div>
+											<span class="font-semibold text-slate-900"><?php esc_html_e( 'Alla varumärken', 'woo-kustom-export' ); ?></span>
+											<p class="text-[11px] text-slate-500 m-0"><?php esc_html_e( 'Exportera artiklar oavsett varumärke.', 'woo-kustom-export' ); ?></p>
+										</div>
+									</label>
+
+									<label class="flex items-start gap-2 cursor-pointer text-xs text-slate-800">
+										<input type="radio" name="woo_kustom_export[sello_filter_brand_mode]" value="include_only" class="mt-0.5 js-sello-brand-radio" <?php checked( 'include_only' === $brand_mode ); ?>>
+										<div>
+											<span class="font-semibold text-slate-900"><?php esc_html_e( 'Endast utvalda varumärken', 'woo-kustom-export' ); ?></span>
+											<p class="text-[11px] text-slate-500 m-0"><?php esc_html_e( 'Begränsa exporten till de märken du bockar för i listan nedan.', 'woo-kustom-export' ); ?></p>
+										</div>
+									</label>
+								</div>
+
+								<!-- Varumärkeslista (visas om include_only är valt) -->
+								<div id="selloBrandListWrap" class="<?php echo 'include_only' === $brand_mode ? '' : 'hidden'; ?> mt-3 pt-3 border-t border-slate-200">
+									<div class="flex items-center gap-2 mb-2">
+										<div class="relative flex-1">
+											<span class="material-symbols-outlined absolute left-2 top-1.5 text-slate-400 text-[16px]">search</span>
+											<input type="text" id="selloBrandSearchInput" placeholder="<?php esc_attr_e( 'Filtrera varumärken...', 'woo-kustom-export' ); ?>" class="w-full bg-slate-50 border border-slate-300 rounded pl-7 pr-2 py-1 text-xs text-slate-800 focus:bg-white focus:ring-1 focus:ring-primary focus:border-primary">
+										</div>
+										<button type="button" id="selloSelectAllBrandsBtn" class="px-2 py-1 text-[11px] font-medium rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 cursor-pointer">
+											<?php esc_html_e( 'Alla', 'woo-kustom-export' ); ?>
+										</button>
+										<button type="button" id="selloDeselectAllBrandsBtn" class="px-2 py-1 text-[11px] font-medium rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 cursor-pointer">
+											<?php esc_html_e( 'Inga', 'woo-kustom-export' ); ?>
+										</button>
+									</div>
+
+									<div class="max-h-48 overflow-y-auto border border-slate-200 rounded p-2 bg-slate-50/70 flex flex-col gap-1 text-xs" id="selloBrandListContainer">
+										<?php if ( ! empty( $available_brands ) ) : ?>
+											<?php foreach ( $available_brands as $brand_name => $b_count ) :
+												$is_b_checked = in_array( $brand_name, $selected_brands, true );
+											?>
+											<label class="flex items-center justify-between p-1 rounded hover:bg-white cursor-pointer js-brand-item" data-brand="<?php echo esc_attr( mb_strtolower( $brand_name ) ); ?>">
+												<span class="flex items-center gap-1.5 text-slate-800">
+													<input type="checkbox" name="woo_kustom_export[sello_filter_brands][]" value="<?php echo esc_attr( $brand_name ); ?>" class="w-3.5 h-3.5 rounded text-primary accent-primary js-sello-brand-cb" <?php checked( $is_b_checked ); ?>>
+													<span class="font-medium"><?php echo esc_html( $brand_name ); ?></span>
+												</span>
+												<span class="text-[10px] text-slate-400 font-mono"><?php echo esc_html( $b_count ); ?> st</span>
+											</label>
+											<?php endforeach; ?>
+										<?php else : ?>
+											<p class="text-[11px] text-slate-500 m-0 p-1"><?php esc_html_e( 'Inga varumärken hittades automatiskt i WooCommerce.', 'woo-kustom-export' ); ?></p>
+										<?php endif; ?>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+
 				<!-- Tradera Skick & Egenskapsmappning -->
 				<div class="bg-surface-container-low/70 rounded-xl p-space-lg mb-space-lg border border-slate-200">
 					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
 						<div class="flex items-center gap-2">
 							<span class="material-symbols-outlined text-[20px] text-primary">verified</span>
 							<h3 class="font-title-md text-title-md text-on-surface m-0 font-bold text-slate-900">
-								<?php esc_html_e( 'Tradera Skick & Egenskapsmappning', 'woo-kustom-export' ); ?>
+								<?php esc_html_e( 'Tradera Skick & Sello Condition-mappning', 'woo-kustom-export' ); ?>
 							</h3>
 						</div>
 						<span class="inline-flex items-center gap-1 text-[11px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full self-start sm:self-auto">
 							<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-							<?php esc_html_e( 'Löser Traderas obligatoriska krav i Sello', 'woo-kustom-export' ); ?>
+							<?php esc_html_e( 'Matchar Sellos officiella format (Condition: new / used)', 'woo-kustom-export' ); ?>
 						</span>
 					</div>
 					<p class="text-xs text-slate-600 mb-space-md max-w-3xl leading-relaxed">
-						<?php esc_html_e( 'Tradera kräver att egenskapen "Skick" (Property Skick) alltid anges. Produkter med WooCommerce-attributet "Ny" mappas automatiskt till "Oanvänt" (Är begagnad: No). Välj nedan hur "Vintage" och produkter utan angivet skick ska hanteras:', 'woo-kustom-export' ); ?>
+						<?php esc_html_e( 'Sello kräver kolumnen "Condition" med värdena "new" eller "used" för att styra Traderas skick. Produkter med WooCommerce-attributet "Ny" mappas automatiskt till "new" (Oanvänt på Tradera). Produkter märkta med "Vintage" eller begagnat skick mappas till "used", och det detaljerade skicket inkluderas även automatiskt i beskrivningstexten:', 'woo-kustom-export' ); ?>
 					</p>
 
 					<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md max-w-3xl pt-space-xs">
@@ -1676,7 +1885,7 @@ class WOO_Kustom_Export {
 								<option value="Okej skick" <?php selected( ! empty( $settings['sello_vintage_condition'] ) ? $settings['sello_vintage_condition'] : '', 'Okej skick' ); ?>><?php esc_html_e( 'Okej skick', 'woo-kustom-export' ); ?></option>
 								<option value="Defekt" <?php selected( ! empty( $settings['sello_vintage_condition'] ) ? $settings['sello_vintage_condition'] : '', 'Defekt' ); ?>><?php esc_html_e( 'Defekt', 'woo-kustom-export' ); ?></option>
 							</select>
-							<span class="text-[11px] text-slate-500 mt-1 block"><?php esc_html_e( 'Sätter automatiskt "Property Är begagnad" till Yes.', 'woo-kustom-export' ); ?></span>
+							<span class="text-[11px] text-slate-500 mt-1 block"><?php esc_html_e( 'Sätter Sello Condition till "used" och anger vald nivå i beskrivningen.', 'woo-kustom-export' ); ?></span>
 						</div>
 
 						<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
@@ -1684,11 +1893,50 @@ class WOO_Kustom_Export {
 								<?php esc_html_e( 'Standard om produkt saknar skick-attribut:', 'woo-kustom-export' ); ?>
 							</label>
 							<select name="woo_kustom_export[sello_default_condition]" id="sello_default_condition" class="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-primary focus:border-primary">
-								<option value="Oanvänt" <?php selected( ! empty( $settings['sello_default_condition'] ) ? $settings['sello_default_condition'] : 'Oanvänt', 'Oanvänt' ); ?>><?php esc_html_e( 'Oanvänt (Ny produkt / Är begagnad: No)', 'woo-kustom-export' ); ?></option>
-								<option value="Gott skick" <?php selected( ! empty( $settings['sello_default_condition'] ) ? $settings['sello_default_condition'] : '', 'Gott skick' ); ?>><?php esc_html_e( 'Gott skick (Vintage/Begagnad / Är begagnad: Yes)', 'woo-kustom-export' ); ?></option>
-								<option value="Mycket gott skick" <?php selected( ! empty( $settings['sello_default_condition'] ) ? $settings['sello_default_condition'] : '', 'Mycket gott skick' ); ?>><?php esc_html_e( 'Mycket gott skick (Är begagnad: Yes)', 'woo-kustom-export' ); ?></option>
+								<option value="Oanvänt" <?php selected( ! empty( $settings['sello_default_condition'] ) ? $settings['sello_default_condition'] : 'Oanvänt', 'Oanvänt' ); ?>><?php esc_html_e( 'Oanvänt (Ny produkt / Condition: new)', 'woo-kustom-export' ); ?></option>
+								<option value="Gott skick" <?php selected( ! empty( $settings['sello_default_condition'] ) ? $settings['sello_default_condition'] : '', 'Gott skick' ); ?>><?php esc_html_e( 'Gott skick (Vintage/Begagnad / Condition: used)', 'woo-kustom-export' ); ?></option>
+								<option value="Mycket gott skick" <?php selected( ! empty( $settings['sello_default_condition'] ) ? $settings['sello_default_condition'] : '', 'Mycket gott skick' ); ?>><?php esc_html_e( 'Mycket gott skick (Condition: used)', 'woo-kustom-export' ); ?></option>
 							</select>
 							<span class="text-[11px] text-slate-500 mt-1 block"><?php esc_html_e( 'Fallback om varken Ny eller Vintage angivits i WooCommerce.', 'woo-kustom-export' ); ?></span>
+						</div>
+					</div>
+				</div>
+
+				<!-- Tradera Länkskydd & Borttagning av Glasprinsen-länkar -->
+				<div class="bg-surface-container-low/70 rounded-xl p-space-lg mb-space-lg border border-slate-200">
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+						<div class="flex items-center gap-2">
+							<span class="material-symbols-outlined text-[20px] text-primary">link_off</span>
+							<h3 class="font-title-md text-title-md text-on-surface m-0 font-bold text-slate-900">
+								<?php esc_html_e( 'Tradera Länkskydd & Webbadresser', 'woo-kustom-export' ); ?>
+							</h3>
+						</div>
+						<span class="inline-flex items-center gap-1 text-[11px] bg-emerald-100 text-emerald-800 font-semibold px-2 py-0.5 rounded-full self-start sm:self-auto">
+							<span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+							<?php esc_html_e( 'Skydd mot avstängning på Tradera', 'woo-kustom-export' ); ?>
+						</span>
+					</div>
+					<p class="text-xs text-slate-600 mb-space-md max-w-3xl leading-relaxed">
+						<?php esc_html_e( 'Tradera förbjuder externa länkar, webbadresser och hänvisningar till webbutiker i objektsbeskrivningen. När funktionen är aktiverad tas HTML-länkar, URL:er (t.ex. glasprinsen.se) och butikshänvisningar automatiskt bort på ett snyggt sätt utan att förstöra beskrivningstexten.', 'woo-kustom-export' ); ?>
+					</p>
+
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md max-w-3xl pt-space-xs">
+						<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
+							<label class="flex items-start gap-2.5 cursor-pointer select-none">
+								<input type="checkbox" name="woo_kustom_export[sello_strip_links]" value="1" class="mt-0.5 w-4 h-4 rounded text-primary accent-primary cursor-pointer" <?php checked( ! isset( $settings['sello_strip_links'] ) || ! empty( $settings['sello_strip_links'] ) ); ?>>
+								<div class="flex flex-col">
+									<span class="font-semibold text-xs text-slate-900"><?php esc_html_e( 'Ta bort länkar och webbadresser i exporten', 'woo-kustom-export' ); ?></span>
+									<span class="text-[11px] text-slate-500 mt-1 leading-snug"><?php esc_html_e( 'Rekommenderas för Tradera. Rensar automatiskt bort klickbara länkar, URL:er och butikshänvisningar.', 'woo-kustom-export' ); ?></span>
+								</div>
+							</label>
+						</div>
+
+						<div class="bg-white p-3 rounded-lg border border-slate-200 shadow-2xs">
+							<label class="block font-semibold text-xs text-slate-900 mb-1" for="sello_strip_domains">
+								<?php esc_html_e( 'Domäner och nyckelord att rensa:', 'woo-kustom-export' ); ?>
+							</label>
+							<input type="text" name="woo_kustom_export[sello_strip_domains]" id="sello_strip_domains" value="<?php echo esc_attr( ! empty( $settings['sello_strip_domains'] ) ? $settings['sello_strip_domains'] : 'glasprinsen.se, glasprinsen' ); ?>" class="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-primary focus:border-primary placeholder:text-slate-400">
+							<span class="text-[11px] text-slate-500 mt-1 block"><?php esc_html_e( 'Kommaseparerad lista (standard: glasprinsen.se, glasprinsen).', 'woo-kustom-export' ); ?></span>
 						</div>
 					</div>
 				</div>
@@ -1819,20 +2067,12 @@ class WOO_Kustom_Export {
 											<span class="text-slate-400">—</span>
 										<?php endif; ?>
 									</td>
-									<?php elseif ( 'Property Skick' === $col_name ) : ?>
-									<td class="py-2.5 px-3 text-slate-800 whitespace-nowrap">
-										<?php if ( '' !== $val ) : ?>
-											<span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded font-medium"><?php echo esc_html( $val ); ?></span>
-										<?php else : ?>
-											<span class="text-slate-400">—</span>
-										<?php endif; ?>
-									</td>
-									<?php elseif ( 'Property Är begagnad' === $col_name ) : ?>
-									<td class="py-2.5 px-3 text-slate-700 whitespace-nowrap font-mono text-center">
-										<?php if ( 'Yes' === $val ) : ?>
-											<span class="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded font-semibold text-[11px]"><?php echo esc_html( $val ); ?></span>
-										<?php elseif ( 'No' === $val ) : ?>
-											<span class="bg-slate-100 text-slate-700 border border-slate-200 px-1.5 py-0.5 rounded font-semibold text-[11px]"><?php echo esc_html( $val ); ?></span>
+									<?php elseif ( 'Condition' === $col_name ) : ?>
+									<td class="py-2.5 px-3 text-slate-800 whitespace-nowrap font-mono text-center">
+										<?php if ( 'new' === $val ) : ?>
+											<span class="bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded font-semibold text-[11px]"><?php echo esc_html( $val ); ?></span>
+										<?php elseif ( 'used' === $val ) : ?>
+											<span class="bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded font-semibold text-[11px]"><?php echo esc_html( $val ); ?></span>
 										<?php else : ?>
 											<span class="text-slate-400">—</span>
 										<?php endif; ?>
@@ -2189,102 +2429,6 @@ class WOO_Kustom_Export {
 				<span id="toastMessage"><?php esc_html_e( 'Åtgärd utförd!', 'woo-kustom-export' ); ?></span>
 			</div>
 		</div>
-
-		<script>
-		// Initiera Sello-interaktioner direkt om skript laddas inline
-		(function() {
-			var toast = document.getElementById('toastNotification');
-			var toastMsg = document.getElementById('toastMessage');
-
-			function showToast(text) {
-				if (!toast || !toastMsg) return;
-				toastMsg.textContent = text;
-				toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-				toast.classList.add('translate-y-0', 'opacity-100');
-
-				setTimeout(function() {
-					toast.classList.remove('translate-y-0', 'opacity-100');
-					toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-				}, 4000);
-			}
-
-			var xlsxBtn = document.getElementById('downloadXlsxBtn');
-			if (xlsxBtn) {
-				xlsxBtn.addEventListener('click', function() {
-					var count = xlsxBtn.getAttribute('data-count') || '<?php echo esc_js( number_format_i18n( $total_rows ) ); ?>';
-					var fn = xlsxBtn.getAttribute('data-filename') || 'sello-tradera-products-<?php echo esc_js( $today_date ); ?>.xlsx';
-					showToast('Genererar och laddar ner ' + fn + ' (' + count + ' rader)...');
-				});
-			}
-
-			var csvBtn = document.getElementById('downloadCsvBtn');
-			if (csvBtn) {
-				csvBtn.addEventListener('click', function() {
-					var fn = csvBtn.getAttribute('data-filename') || 'sello-tradera-products-<?php echo esc_js( $today_date ); ?>.csv';
-					showToast('Genererar och laddar ner ' + fn + '...');
-				});
-			}
-
-			// Snabbknappar för att markera / avmarkera kolumner
-			var selectAllBtn = document.getElementById('selloSelectAllBtn');
-			var deselectAllBtn = document.getElementById('selloDeselectAllBtn');
-			var colCheckboxes = document.querySelectorAll('.sello-col-checkbox');
-
-			if (selectAllBtn) {
-				selectAllBtn.addEventListener('click', function() {
-					colCheckboxes.forEach(function(cb) {
-						cb.checked = true;
-					});
-					showToast('Samtliga 12 kolumner markerade. Klicka på "Spara kolumnval" för att verkställa.');
-				});
-			}
-
-			if (deselectAllBtn) {
-				deselectAllBtn.addEventListener('click', function() {
-					colCheckboxes.forEach(function(cb) {
-						cb.checked = false;
-					});
-					showToast('Alla kolumner avmarkerade. Välj önskade fält och klicka på "Spara kolumnval".');
-				});
-			}
-
-			// AJAX-sparande av Sello-kolumnval
-			var columnsForm = document.getElementById('sello-columns-form');
-			var saveBtn = document.getElementById('selloSaveBtn');
-
-			if (columnsForm && saveBtn) {
-				columnsForm.addEventListener('submit', function(e) {
-					e.preventDefault();
-					var originalHtml = saveBtn.innerHTML;
-					saveBtn.disabled = true;
-					saveBtn.innerHTML = '<span class="material-symbols-outlined text-[15px] animate-spin">sync</span> <span>Sparar...</span>';
-
-					var formData = new FormData(columnsForm);
-
-					fetch(columnsForm.action, {
-						method: 'POST',
-						body: formData,
-						headers: {
-							'X-Requested-With': 'XMLHttpRequest'
-						}
-					}).then(function(res) {
-						saveBtn.disabled = false;
-						saveBtn.innerHTML = '<span class="material-symbols-outlined text-[15px]">done</span> <span>Sparat!</span>';
-						showToast('Dina valda Sello-kolumner har sparats!');
-						setTimeout(function() {
-							saveBtn.innerHTML = originalHtml;
-							// Ladda om sidan för att uppdatera förhandsgranskningen direkt
-							window.location.reload();
-						}, 1000);
-					}).catch(function() {
-						saveBtn.disabled = false;
-						saveBtn.innerHTML = originalHtml;
-						columnsForm.submit();
-					});
-				});
-			}
-		})();
-		</script>
 		<?php
 	}
 
@@ -2396,7 +2540,8 @@ class WOO_Kustom_Export {
 	 */
 	public static function cleanup_archive() {
 		$max_age     = 7 * DAY_IN_SECONDS;
-		$cutoff_time = current_time( 'timestamp' ) - $max_age;
+		$now         = time();
+		$cutoff_time = $now - $max_age;
 		$archive_dir = realpath( self::get_archive_dir() );
 		$entries     = get_option( self::ARCHIVE_OPTION_KEY, array() );
 		$kept        = array();
@@ -2424,12 +2569,18 @@ class WOO_Kustom_Export {
 
 		// Rensa eventuella föräldralösa filer i mappen äldre än 7 dagar
 		if ( $archive_dir && is_dir( $archive_dir ) ) {
-			$files = glob( $archive_dir . '/*.{csv,xlsx}', GLOB_BRACE );
-			if ( is_array( $files ) ) {
-				$now = time();
-				foreach ( $files as $file ) {
-					if ( is_file( $file ) && ( $now - filemtime( $file ) ) > $max_age ) {
-						@unlink( $file );
+			$dir_items = scandir( $archive_dir );
+			if ( is_array( $dir_items ) ) {
+				foreach ( $dir_items as $item_name ) {
+					if ( '.' === $item_name || '..' === $item_name || '.htaccess' === $item_name || 'index.php' === $item_name ) {
+						continue;
+					}
+					$ext = strtolower( pathinfo( $item_name, PATHINFO_EXTENSION ) );
+					if ( in_array( $ext, array( 'csv', 'xlsx' ), true ) ) {
+						$file = trailingslashit( $archive_dir ) . $item_name;
+						if ( is_file( $file ) && ( $now - filemtime( $file ) ) > $max_age ) {
+							@unlink( $file );
+						}
 					}
 				}
 			}
@@ -2481,9 +2632,10 @@ class WOO_Kustom_Export {
 	 * @return string
 	 */
 	public static function format_archive_date( $timestamp ) {
+		$now       = time();
 		$date_day  = wp_date( 'Y-m-d', $timestamp );
-		$today     = wp_date( 'Y-m-d', current_time( 'timestamp' ) );
-		$yesterday = wp_date( 'Y-m-d', current_time( 'timestamp' ) - DAY_IN_SECONDS );
+		$today     = wp_date( 'Y-m-d', $now );
+		$yesterday = wp_date( 'Y-m-d', $now - DAY_IN_SECONDS );
 
 		if ( $date_day === $today ) {
 			return sprintf( __( 'Idag, %s', 'woo-kustom-export' ), wp_date( 'H:i', $timestamp ) );
@@ -2535,6 +2687,12 @@ class WOO_Kustom_Export {
 
 		check_admin_referer( 'woo_kustom_export_download' );
 
+		if ( function_exists( 'wc_set_time_limit' ) ) {
+			wc_set_time_limit( 0 );
+		} elseif ( function_exists( 'set_time_limit' ) ) {
+			@set_time_limit( 0 );
+		}
+
 		$platform    = self::sanitize_platform( isset( $_GET['platform'] ) ? wp_unslash( $_GET['platform'] ) : 'kustom' );
 		$generator   = self::create_generator( $platform );
 		$archive_dir = self::get_archive_dir();
@@ -2558,7 +2716,7 @@ class WOO_Kustom_Export {
 					'platform_label' => self::get_platform_label( $platform ),
 					'rows'           => $rows_count,
 					'size'           => $file_size,
-					'timestamp'      => current_time( 'timestamp' ),
+					'timestamp'      => time(),
 					'status'         => 'completed',
 				)
 			);
@@ -2647,17 +2805,25 @@ class WOO_Kustom_Export {
 		$existing = self::get_settings();
 
 		// Om formuläret skickas från Dashboard (filter) eller Kustom (kolumner & attribut).
-		$include_drafts     = isset( $raw['include_drafts'] ) ? ( empty( $raw['include_drafts'] ) ? 0 : 1 ) : $existing['include_drafts'];
-		$include_private    = isset( $raw['include_private'] ) ? ( empty( $raw['include_private'] ) ? 0 : 1 ) : $existing['include_private'];
-		$include_outofstock = isset( $raw['include_outofstock'] ) ? ( empty( $raw['include_outofstock'] ) ? 0 : 1 ) : $existing['include_outofstock'];
+		if ( 'dashboard' === $return_tab ) {
+			$include_drafts     = ! empty( $raw['include_drafts'] ) ? 1 : 0;
+			$include_private    = ! empty( $raw['include_private'] ) ? 1 : 0;
+			$include_outofstock = ! empty( $raw['include_outofstock'] ) ? 1 : 0;
+		} else {
+			$include_drafts     = isset( $raw['include_drafts'] ) ? ( empty( $raw['include_drafts'] ) ? 0 : 1 ) : $existing['include_drafts'];
+			$include_private    = isset( $raw['include_private'] ) ? ( empty( $raw['include_private'] ) ? 0 : 1 ) : $existing['include_private'];
+			$include_outofstock = isset( $raw['include_outofstock'] ) ? ( empty( $raw['include_outofstock'] ) ? 0 : 1 ) : $existing['include_outofstock'];
+		}
 
-		$optional_columns  = isset( $existing['optional_columns'] ) && is_array( $existing['optional_columns'] ) ? $existing['optional_columns'] : array();
-		$custom_attributes = isset( $existing['custom_attributes'] ) && is_array( $existing['custom_attributes'] ) ? $existing['custom_attributes'] : array();
+		$optional_columns            = isset( $existing['optional_columns'] ) && is_array( $existing['optional_columns'] ) ? $existing['optional_columns'] : array();
+		$optional_columns_configured = ! empty( $existing['optional_columns_configured'] ) ? 1 : 0;
+		$custom_attributes           = isset( $existing['custom_attributes'] ) && is_array( $existing['custom_attributes'] ) ? $existing['custom_attributes'] : array();
 		if ( empty( $custom_attributes ) && ! empty( $existing['custom_attribute'] ) ) {
 			$custom_attributes = array( (string) $existing['custom_attribute'] );
 		}
 
 		if ( 'kustom' === $return_tab ) {
+			$optional_columns_configured = 1;
 			$supported_cols   = array_keys( WOO_Kustom_CSV_Generator::get_supported_optional_columns() );
 			$optional_columns = array();
 			if ( isset( $raw['optional_columns'] ) && is_array( $raw['optional_columns'] ) ) {
@@ -2713,11 +2879,19 @@ class WOO_Kustom_Export {
 			}
 		}
 
-		$sello_columns           = isset( $existing['sello_columns'] ) && is_array( $existing['sello_columns'] ) ? $existing['sello_columns'] : array();
-		$sello_vintage_condition = isset( $existing['sello_vintage_condition'] ) ? $existing['sello_vintage_condition'] : 'Gott skick';
-		$sello_default_condition = isset( $existing['sello_default_condition'] ) ? $existing['sello_default_condition'] : 'Oanvänt';
+		$sello_columns               = isset( $existing['sello_columns'] ) && is_array( $existing['sello_columns'] ) ? $existing['sello_columns'] : array();
+		$sello_columns_configured    = ! empty( $existing['sello_columns_configured'] ) ? 1 : 0;
+		$sello_vintage_condition     = isset( $existing['sello_vintage_condition'] ) ? $existing['sello_vintage_condition'] : 'Gott skick';
+		$sello_default_condition     = isset( $existing['sello_default_condition'] ) ? $existing['sello_default_condition'] : 'Oanvänt';
+		$sello_strip_links           = isset( $existing['sello_strip_links'] ) ? (int) $existing['sello_strip_links'] : 1;
+		$sello_strip_domains         = isset( $existing['sello_strip_domains'] ) ? (string) $existing['sello_strip_domains'] : 'glasprinsen.se, glasprinsen';
+		$sello_filter_condition_mode = isset( $existing['sello_filter_condition_mode'] ) ? $existing['sello_filter_condition_mode'] : 'all';
+		$sello_filter_conditions     = isset( $existing['sello_filter_conditions'] ) && is_array( $existing['sello_filter_conditions'] ) ? $existing['sello_filter_conditions'] : array();
+		$sello_filter_brand_mode     = isset( $existing['sello_filter_brand_mode'] ) ? $existing['sello_filter_brand_mode'] : 'all';
+		$sello_filter_brands         = isset( $existing['sello_filter_brands'] ) && is_array( $existing['sello_filter_brands'] ) ? $existing['sello_filter_brands'] : array();
 
 		if ( 'sello' === $return_tab ) {
+			$sello_columns_configured = 1;
 			$all_sello_cols = WOO_Sello_CSV_Generator::get_all_columns_list();
 			$sello_columns  = array();
 			if ( isset( $raw['sello_columns'] ) && is_array( $raw['sello_columns'] ) ) {
@@ -2735,18 +2909,63 @@ class WOO_Kustom_Export {
 			if ( isset( $raw['sello_default_condition'] ) && in_array( $raw['sello_default_condition'], $allowed_conditions, true ) ) {
 				$sello_default_condition = sanitize_text_field( $raw['sello_default_condition'] );
 			}
+
+			// Skickfiltreringsläge för Tradera (all, vintage_only, new_only, custom)
+			$allowed_cond_modes = array( 'all', 'vintage_only', 'new_only', 'custom' );
+			if ( isset( $raw['sello_filter_condition_mode'] ) && in_array( $raw['sello_filter_condition_mode'], $allowed_cond_modes, true ) ) {
+				$sello_filter_condition_mode = sanitize_text_field( $raw['sello_filter_condition_mode'] );
+			}
+
+			// Specifikt valda skick om custom-läge används
+			$sello_filter_conditions = array();
+			if ( isset( $raw['sello_filter_conditions'] ) && is_array( $raw['sello_filter_conditions'] ) ) {
+				foreach ( $raw['sello_filter_conditions'] as $cond_candidate ) {
+					$clean_cond = sanitize_text_field( $cond_candidate );
+					if ( in_array( $clean_cond, $allowed_conditions, true ) ) {
+						$sello_filter_conditions[] = $clean_cond;
+					}
+				}
+			}
+
+			// Varumärkesfiltreringsläge (all, include_only)
+			$allowed_brand_modes = array( 'all', 'include_only' );
+			if ( isset( $raw['sello_filter_brand_mode'] ) && in_array( $raw['sello_filter_brand_mode'], $allowed_brand_modes, true ) ) {
+				$sello_filter_brand_mode = sanitize_text_field( $raw['sello_filter_brand_mode'] );
+			}
+
+			// Utvalda varumärken att inkludera
+			$sello_filter_brands = array();
+			if ( isset( $raw['sello_filter_brands'] ) && is_array( $raw['sello_filter_brands'] ) ) {
+				foreach ( $raw['sello_filter_brands'] as $brand_name ) {
+					$clean_brand = trim( sanitize_text_field( (string) $brand_name ) );
+					if ( '' !== $clean_brand && ! in_array( $clean_brand, $sello_filter_brands, true ) ) {
+						$sello_filter_brands[] = $clean_brand;
+					}
+				}
+			}
+			// Länkborttagning för Tradera (strip links & URLs)
+			$sello_strip_links   = isset( $raw['sello_strip_links'] ) ? ( empty( $raw['sello_strip_links'] ) ? 0 : 1 ) : 0;
+			$sello_strip_domains = isset( $raw['sello_strip_domains'] ) ? sanitize_text_field( $raw['sello_strip_domains'] ) : 'glasprinsen.se, glasprinsen';
 		}
 
 		$settings = array(
-			'include_drafts'          => $include_drafts,
-			'include_private'         => $include_private,
-			'include_outofstock'      => $include_outofstock,
-			'optional_columns'        => $optional_columns,
-			'custom_attribute'        => ! empty( $custom_attributes ) ? reset( $custom_attributes ) : '',
-			'custom_attributes'       => $custom_attributes,
-			'sello_columns'           => $sello_columns,
-			'sello_vintage_condition' => $sello_vintage_condition,
-			'sello_default_condition' => $sello_default_condition,
+			'include_drafts'              => $include_drafts,
+			'include_private'             => $include_private,
+			'include_outofstock'          => $include_outofstock,
+			'optional_columns'            => $optional_columns,
+			'optional_columns_configured' => $optional_columns_configured,
+			'custom_attribute'            => ! empty( $custom_attributes ) ? reset( $custom_attributes ) : '',
+			'custom_attributes'           => $custom_attributes,
+			'sello_columns'               => $sello_columns,
+			'sello_columns_configured'    => $sello_columns_configured,
+			'sello_vintage_condition'     => $sello_vintage_condition,
+			'sello_default_condition'     => $sello_default_condition,
+			'sello_strip_links'           => $sello_strip_links,
+			'sello_strip_domains'         => $sello_strip_domains,
+			'sello_filter_condition_mode' => $sello_filter_condition_mode,
+			'sello_filter_conditions'     => $sello_filter_conditions,
+			'sello_filter_brand_mode'     => $sello_filter_brand_mode,
+			'sello_filter_brands'         => $sello_filter_brands,
 		);
 
 		update_option( self::OPTION_KEY, $settings, false );

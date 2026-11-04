@@ -1,6 +1,6 @@
 {
   "name": "woo-kustom-export",
-  "version": "1.5.0",
+  "version": "1.5.2",
   "description": "Exportera WooCommerce-produkter till CSV och Excel redo för Kustom POS och Sello (Tradera).",
   "author": "Linthor Webbyrå",
   "license": "GPL-2.0-or-later",

@@ -153,7 +153,7 @@
 		var deselectAllBtn = document.getElementById('deselectAllFields');
 		var resetBtn = document.getElementById('resetDefaultsBtn');
 		var saveBtn = document.getElementById('saveSettingsBtn');
-		var downloadBtn = document.getElementById('downloadCsvBtn');
+		var downloadBtn = document.getElementById('kustomDownloadCsvBtn') || document.getElementById('downloadCsvBtn');
 		var toggleMoreBtn = document.getElementById('toggleMoreFieldsBtn');
 		var moreFieldsContainer = document.getElementById('moreFieldsContainer');
 		var columnsPreviewList = document.getElementById('columnsPreviewList');
@@ -251,7 +251,7 @@
 					if (cleanName === 'skick' || cleanName === 'condition' || cleanName === 'pa_skick') {
 						return;
 					}
-					var colName = 'attribute_' + cleanName.replace(/^attribute_/, '').replace(/^pa_/, '');
+					var colName = cleanName.replace(/^attribute_/, '').replace(/^pa_/, '');
 					var sample1 = '"Val 1"';
 					var sample2 = '"Val 2"';
 
@@ -447,18 +447,21 @@
 		var toastMsg = document.getElementById('toastMessage');
 
 		function showToast(text) {
-			if (!toast || !toastMsg) return;
-			toastMsg.textContent = text;
-			toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-			toast.classList.add('translate-y-0', 'opacity-100');
+			if (toast && toastMsg) {
+				toastMsg.textContent = text;
+				toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
+				toast.classList.add('translate-y-0', 'opacity-100');
 
-			setTimeout(function () {
-				toast.classList.remove('translate-y-0', 'opacity-100');
-				toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-			}, 3500);
+				setTimeout(function () {
+					toast.classList.remove('translate-y-0', 'opacity-100');
+					toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
+				}, 3500);
+			} else if (typeof window.triggerQuickDownload === 'function') {
+				window.triggerQuickDownload('save_ok');
+			}
 		}
 
-		var xlsxBtn = document.getElementById('downloadXlsxBtn');
+		var xlsxBtn = document.getElementById('selloDownloadXlsxBtn') || document.getElementById('downloadXlsxBtn');
 		if (xlsxBtn) {
 			xlsxBtn.addEventListener('click', function () {
 				var count = xlsxBtn.getAttribute('data-count') || '';
@@ -468,11 +471,149 @@
 			});
 		}
 
-		var csvBtn = document.getElementById('downloadCsvBtn');
+		var csvBtn = document.getElementById('selloDownloadCsvBtn') || document.getElementById('downloadCsvBtn');
 		if (csvBtn) {
 			csvBtn.addEventListener('click', function () {
 				var fn = csvBtn.getAttribute('data-filename') || 'sello-tradera-products.csv';
 				showToast('Genererar och laddar ner ' + fn + ' (UTF-8)...');
+			});
+		}
+
+		// Snabbval för Sello-kolumner (Markera alla / Avmarkera alla)
+		var selectAllColsBtn = document.getElementById('selloSelectAllBtn');
+		var deselectAllColsBtn = document.getElementById('selloDeselectAllBtn');
+		var selloColCheckboxes = document.querySelectorAll('.sello-col-checkbox');
+
+		if (selectAllColsBtn) {
+			selectAllColsBtn.addEventListener('click', function (e) {
+				e.preventDefault();
+				selloColCheckboxes.forEach(function (cb) {
+					cb.checked = true;
+				});
+			});
+		}
+
+		if (deselectAllColsBtn) {
+			deselectAllColsBtn.addEventListener('click', function (e) {
+				e.preventDefault();
+				selloColCheckboxes.forEach(function (cb) {
+					cb.checked = false;
+				});
+			});
+		}
+
+		// Spara Sello-inställningar asynkront via AJAX
+		var selloForm = document.getElementById('sello-columns-form');
+		var selloSaveBtn = document.getElementById('selloSaveBtn');
+
+		if (selloForm) {
+			selloForm.addEventListener('submit', function (e) {
+				e.preventDefault();
+				if (!selloSaveBtn) {
+					selloForm.submit();
+					return;
+				}
+
+				var originalContent = selloSaveBtn.innerHTML;
+				selloSaveBtn.innerHTML = '<span class="material-symbols-outlined text-[15px] animate-spin">progress_activity</span><span>Sparar...</span>';
+				selloSaveBtn.disabled = true;
+
+				var formData = new FormData(selloForm);
+
+				fetch(selloForm.action, {
+					method: 'POST',
+					body: formData,
+					headers: {
+						'X-Requested-With': 'XMLHttpRequest'
+					}
+				}).then(function (res) {
+					return res.json();
+				}).then(function () {
+					selloSaveBtn.innerHTML = '<span class="material-symbols-outlined text-[15px]">done</span><span>Sparat!</span>';
+					showToast('Inställningarna för Sello & Tradera har sparats!');
+					setTimeout(function () {
+						selloSaveBtn.innerHTML = originalContent;
+						selloSaveBtn.disabled = false;
+					}, 1500);
+				}).catch(function () {
+					selloSaveBtn.disabled = false;
+					selloSaveBtn.innerHTML = originalContent;
+					selloForm.submit();
+				});
+			});
+		}
+
+		// Interaktivitet för Skick- och Vintagefilter
+		var condRadios = document.querySelectorAll('.js-sello-cond-radio');
+		var customCondWrap = document.getElementById('selloCustomCondWrap');
+		if (condRadios.length && customCondWrap) {
+			condRadios.forEach(function (radio) {
+				radio.addEventListener('change', function () {
+					if (radio.checked && radio.value === 'custom') {
+						customCondWrap.classList.remove('hidden');
+					} else if (radio.checked) {
+						customCondWrap.classList.add('hidden');
+					}
+				});
+			});
+		}
+
+		// Interaktivitet för Varumärkesfilter
+		var brandRadios = document.querySelectorAll('.js-sello-brand-radio');
+		var brandListWrap = document.getElementById('selloBrandListWrap');
+		if (brandRadios.length && brandListWrap) {
+			brandRadios.forEach(function (radio) {
+				radio.addEventListener('change', function () {
+					if (radio.checked && radio.value === 'include_only') {
+						brandListWrap.classList.remove('hidden');
+					} else if (radio.checked) {
+						brandListWrap.classList.add('hidden');
+					}
+				});
+			});
+		}
+
+		// Realtids-sökning bland varumärken
+		var brandSearchInput = document.getElementById('selloBrandSearchInput');
+		var brandItems = document.querySelectorAll('.js-brand-item');
+		if (brandSearchInput && brandItems.length) {
+			brandSearchInput.addEventListener('input', function () {
+				var q = brandSearchInput.value.toLowerCase().trim();
+				brandItems.forEach(function (item) {
+					var brand = (item.getAttribute('data-brand') || '').toLowerCase();
+					if (!q || brand.indexOf(q) !== -1) {
+						item.classList.remove('hidden');
+					} else {
+						item.classList.add('hidden');
+					}
+				});
+			});
+		}
+
+		// Markera / Avmarkera alla varumärken
+		var selectAllBrandsBtn = document.getElementById('selloSelectAllBrandsBtn');
+		var deselectAllBrandsBtn = document.getElementById('selloDeselectAllBrandsBtn');
+		var brandCheckboxes = document.querySelectorAll('.js-sello-brand-cb');
+
+		if (selectAllBrandsBtn) {
+			selectAllBrandsBtn.addEventListener('click', function () {
+				brandCheckboxes.forEach(function (cb) {
+					var parentLabel = cb.closest('.js-brand-item');
+					if (!parentLabel || !parentLabel.classList.contains('hidden')) {
+						cb.checked = true;
+					}
+				});
+			});
+		}
+
+		if (deselectAllBrandsBtn) {
+			deselectAllBrandsBtn.addEventListener('click', function () {
+				brandCheckboxes.forEach(function (cb) {
+					var parentLabel = cb.closest('.js-brand-item');
+					if (!parentLabel || !parentLabel.classList.contains('hidden')) {
+						cb.checked = false;
+					}
+				});
 			});
 		}
 	}

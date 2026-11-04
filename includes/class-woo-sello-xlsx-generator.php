@@ -40,6 +40,10 @@ class WOO_Sello_XLSX_Generator extends WOO_Sello_CSV_Generator {
 		header( 'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' );
 		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
 
+		while ( ob_get_level() > 0 ) {
+			ob_end_clean();
+		}
+
 		$writer = new XLSXWriter();
 		$writer->setTitle( __( 'Sello Tradera produktexport', 'woo-kustom-export' ) );
 		$writer->setAuthor( get_bloginfo( 'name' ) );
@@ -52,7 +56,7 @@ class WOO_Sello_XLSX_Generator extends WOO_Sello_CSV_Generator {
 		foreach ( $this->get_rows_iter() as $row ) {
 			$writer->writeSheetRow(
 				'Products',
-				array_map( array( $this, 'sanitize_cell' ), array_values( $row ) )
+				array_values( $row )
 			);
 		}
 
@@ -84,7 +88,7 @@ class WOO_Sello_XLSX_Generator extends WOO_Sello_CSV_Generator {
 		foreach ( $this->get_rows_iter() as $row ) {
 			$writer->writeSheetRow(
 				'Products',
-				array_map( array( $this, 'sanitize_cell' ), array_values( $row ) )
+				array_values( $row )
 			);
 			$rows_count++;
 		}

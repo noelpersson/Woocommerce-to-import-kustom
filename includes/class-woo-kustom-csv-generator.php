@@ -235,7 +235,7 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 		parent::__construct( $settings );
 
 		$defaults_standard = array( 'sku', 'gtin', 'regular_price', 'sale_price', 'stock_quantity', 'image_url', 'short_description', 'category_tree' );
-		$has_saved         = ! empty( $this->settings['optional_columns'] );
+		$has_saved         = ! empty( $this->settings['optional_columns_configured'] ) || ! empty( $this->settings['optional_columns'] );
 		$supported         = self::get_supported_optional_columns();
 		foreach ( array_keys( $supported ) as $key ) {
 			if ( $has_saved ) {
@@ -740,7 +740,10 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 				continue;
 			}
 
-			$row = array_merge( $template, $this->build_row( $variation, $product ) );
+			$row = $template;
+			foreach ( $this->build_row( $variation, $product ) as $k => $v ) {
+				$row[ $k ] = $v;
+			}
 
 			foreach ( $variation->get_attributes() as $taxonomy => $value ) {
 				$label = $this->attribute_label( $taxonomy, $product );
@@ -750,7 +753,9 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 				$row[ $label ] = $this->attribute_value( $taxonomy, $value );
 			}
 
-			$row = array_merge( $row, $this->build_custom_attributes_cells( $variation, $product, $row ) );
+			foreach ( $this->build_custom_attributes_cells( $variation, $product, $row ) as $k => $v ) {
+				$row[ $k ] = $v;
+			}
 
 			yield $row;
 		}

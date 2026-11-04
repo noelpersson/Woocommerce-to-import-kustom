@@ -50,17 +50,21 @@ class WOO_Sello_CSV_Generator {
 	 */
 	public function __construct( $settings = array() ) {
 		$defaults = array(
-			'include_drafts'     => 0,
-			'include_private'    => 0,
-			'include_outofstock' => 0,
-			'sello_columns'      => array(),
+			'include_drafts'          => 0,
+			'include_private'         => 0,
+			'include_outofstock'      => 0,
+			'sello_columns'           => array(),
+			'sello_vintage_condition' => 'Gott skick',
+			'sello_default_condition' => 'Oanvänt',
+			'sello_strip_links'       => 1,
+			'sello_strip_domains'     => 'glasprinsen.se, glasprinsen',
 		);
 
 		$this->settings = wp_parse_args( (array) $settings, $defaults );
 	}
 
 	/**
-	 * Samtliga 12 tillgängliga standardkolumner för Sello/Tradera.
+	 * Samtliga 13 tillgängliga standardkolumner för Sello/Tradera.
 	 *
 	 * @return string[]
 	 */
@@ -78,9 +82,90 @@ class WOO_Sello_CSV_Generator {
 			'Brand',
 			'Group sku',
 			'Group type',
-			'Property Skick',
-			'Property Är begagnad',
+			'Condition',
 		);
+	}
+
+	/**
+	 * Hämta alla tillgängliga varumärken i WooCommerce-butiken med antal produkter.
+	 *
+	 * Söker igenom:
+	 * 1. Kända varumärkestaxonomier (pa_brand, pa_varumarke, yith_product_brand m.fl.)
+	 * 2. Dynamiskt registrerade WooCommerce-attribut med etikett brand/varumärke
+	 * 3. Fallback mot postmeta om inga taxonomier används
+	 *
+	 * @return array<string,int> Associativ array med varumärkesnamn och antal artiklar, sorterade alfabetiskt.
+	 */
+	public static function get_available_store_brands() {
+		$brands           = array();
+		$known_taxonomies = array( 'pa_brand', 'pa_varumarke', 'pa_marke', 'yith_product_brand', 'pwb-brand', 'brand' );
+
+		// Undersök om ytterligare pa_-attribut i butiken representerar varumärke
+		if ( function_exists( 'wc_get_attribute_taxonomies' ) ) {
+			$attribute_taxonomies = wc_get_attribute_taxonomies();
+			if ( ! empty( $attribute_taxonomies ) ) {
+				foreach ( $attribute_taxonomies as $tax ) {
+					$label_clean = strtolower( trim( (string) $tax->attribute_label ) );
+					if ( in_array( $label_clean, array( 'brand', 'varumärke', 'varumarke', 'märke', 'marke', 'tillverkare' ), true ) ) {
+						$tax_name = wc_attribute_taxonomy_name( $tax->attribute_name );
+						if ( ! in_array( $tax_name, $known_taxonomies, true ) ) {
+							$known_taxonomies[] = $tax_name;
+						}
+					}
+				}
+			}
+		}
+
+		foreach ( $known_taxonomies as $taxonomy ) {
+			if ( taxonomy_exists( $taxonomy ) ) {
+				$terms = get_terms(
+					array(
+						'taxonomy'   => $taxonomy,
+						'hide_empty' => false,
+					)
+				);
+				if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
+					foreach ( $terms as $term ) {
+						$name = trim( (string) $term->name );
+						if ( '' !== $name ) {
+							$count = (int) $term->count;
+							if ( ! isset( $brands[ $name ] ) ) {
+								$brands[ $name ] = $count;
+							} else {
+								$brands[ $name ] += $count;
+							}
+						}
+					}
+				}
+			}
+		}
+
+		// Fallback till vanliga postmeta-nycklar om inga termer hittades via taxonomier
+		if ( empty( $brands ) ) {
+			global $wpdb;
+			if ( isset( $wpdb ) && isset( $wpdb->postmeta ) ) {
+				$meta_results = $wpdb->get_results(
+					"SELECT meta_value, COUNT(*) as cnt 
+					 FROM {$wpdb->postmeta} 
+					 WHERE meta_key IN ('_brand', 'brand', '_product_brand', 'product_brand', '_varumarke', 'varumarke') 
+					   AND meta_value != '' 
+					 GROUP BY meta_value 
+					 ORDER BY cnt DESC 
+					 LIMIT 300"
+				);
+				if ( ! empty( $meta_results ) ) {
+					foreach ( $meta_results as $row ) {
+						$b_name = trim( (string) $row->meta_value );
+						if ( '' !== $b_name && ! isset( $brands[ $b_name ] ) ) {
+							$brands[ $b_name ] = (int) $row->cnt;
+						}
+					}
+				}
+			}
+		}
+
+		ksort( $brands, SORT_NATURAL | SORT_FLAG_CASE );
+		return $brands;
 	}
 
 	/**
@@ -162,16 +247,10 @@ class WOO_Sello_CSV_Generator {
 				'code'     => 'Group type',
 				'required' => false,
 			),
-			'Property Skick'          => array(
-				'label'    => __( 'Tradera Skick', 'woo-kustom-export' ),
-				'desc'     => __( 'Tradera-skick (Oanvänt, Mycket gott skick, Gott skick, etc.). Mappas automatiskt från skick-attributet.', 'woo-kustom-export' ),
-				'code'     => 'Property Skick',
-				'required' => false,
-			),
-			'Property Är begagnad'    => array(
-				'label'    => __( 'Är begagnad', 'woo-kustom-export' ),
-				'desc'     => __( 'Tradera-egenskap Yes/No. Sätts automatiskt utifrån produktens skick.', 'woo-kustom-export' ),
-				'code'     => 'Property Är begagnad',
+			'Condition'               => array(
+				'label'    => __( 'Produktens skick (Condition)', 'woo-kustom-export' ),
+				'desc'     => __( 'Sellos officiella skickkolumn (new eller used). Sätts automatiskt till new för oanvända artiklar och used för vintage/begagnat, vilket styr Traderas skick.', 'woo-kustom-export' ),
+				'code'     => 'Condition',
 				'required' => false,
 			),
 		);
@@ -180,7 +259,7 @@ class WOO_Sello_CSV_Generator {
 	/**
 	 * Kolumnrubriker i Sellos format för Tradera butiksobjekt.
 	 *
-	 * Som standard är samtliga 12 kolumner aktiva. Om användaren har sparat
+	 * Som standard är samtliga 13 kolumner aktiva. Om användaren har sparat
 	 * specifika kolumnval filtreras kolumnerna utifrån inställningarna.
 	 *
 	 * @return string[]
@@ -188,14 +267,18 @@ class WOO_Sello_CSV_Generator {
 	public function collect_columns() {
 		$all_columns = self::get_all_columns_list();
 
-		// Om inga specifika kolumnval har sparats är alla 12 kolumner ibockade som standard
-		if ( ! isset( $this->settings['sello_columns'] ) || ! is_array( $this->settings['sello_columns'] ) || empty( $this->settings['sello_columns'] ) ) {
+		// Om inga specifika kolumnval har sparats är alla kolumner ibockade som standard
+		$is_configured = ! empty( $this->settings['sello_columns_configured'] );
+		if ( ! $is_configured && ( ! isset( $this->settings['sello_columns'] ) || ! is_array( $this->settings['sello_columns'] ) || empty( $this->settings['sello_columns'] ) ) ) {
 			return $all_columns;
 		}
 
 		$selected = array();
 		foreach ( $all_columns as $col ) {
 			if ( ! empty( $this->settings['sello_columns'][ $col ] ) ) {
+				$selected[] = $col;
+			} elseif ( 'Condition' === $col && ( ! empty( $this->settings['sello_columns']['Property Skick'] ) || ! empty( $this->settings['sello_columns']['Property Är begagnad'] ) ) ) {
+				// Bakåtkompatibilitet: om användaren tidigare hade Property Skick/Är begagnad ibockat, inkludera Condition
 				$selected[] = $col;
 			}
 		}
@@ -220,12 +303,12 @@ class WOO_Sello_CSV_Generator {
 					if ( ! $variation || ! $variation->exists() ) {
 						continue;
 					}
-					if ( ! $this->include_product( $variation ) ) {
+					if ( ! $this->include_product( $variation, $product ) ) {
 						continue;
 					}
 					$var_count++;
 				}
-			} elseif ( $this->include_product( $product ) ) {
+			} elseif ( $this->include_product( $product, $product ) ) {
 				$prod_count++;
 			}
 		}
@@ -264,6 +347,10 @@ class WOO_Sello_CSV_Generator {
 		nocache_headers();
 		header( 'Content-Type: text/csv; charset=utf-8' );
 		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+
+		while ( ob_get_level() > 0 ) {
+			ob_end_clean();
+		}
 
 		$out = fopen( 'php://output', 'wb' );
 		if ( ! $out ) {
@@ -344,8 +431,12 @@ class WOO_Sello_CSV_Generator {
 
 			if ( $product->is_type( 'variable' ) ) {
 				yield from $this->get_variable_rows_iter( $product, $template );
-			} elseif ( $this->include_product( $product ) ) {
-				yield array_merge( $template, $this->build_base_row( $product, $product ) );
+			} elseif ( $this->include_product( $product, $product ) ) {
+				$row = $template;
+				foreach ( $this->build_base_row( $product, $product ) as $k => $v ) {
+					$row[ $k ] = $v;
+				}
+				yield $row;
 			}
 		}
 	}
@@ -383,7 +474,7 @@ class WOO_Sello_CSV_Generator {
 				$parent_name = $product->get_name();
 				foreach ( $product->get_children() as $variation_id ) {
 					$variation = wc_get_product( $variation_id );
-					if ( ! $variation || ! $variation->exists() || ! $this->include_product( $variation ) ) {
+					if ( ! $variation || ! $variation->exists() || ! $this->include_product( $variation, $product ) ) {
 						continue;
 					}
 
@@ -422,7 +513,7 @@ class WOO_Sello_CSV_Generator {
 						);
 					}
 				}
-			} elseif ( $this->include_product( $product ) ) {
+			} elseif ( $this->include_product( $product, $product ) ) {
 				$total_checked++;
 				$sku   = trim( (string) $product->get_sku() );
 				$price = $product->get_price();
@@ -478,7 +569,7 @@ class WOO_Sello_CSV_Generator {
 
 		// Om filter uttryckligen aktiverar huvudprodukten som egen rad:
 		$include_parent = (bool) apply_filters( 'woo_kustom_sello_include_parent_row', false, $product );
-		if ( $include_parent && $this->include_product( $product ) ) {
+		if ( $include_parent && $this->include_product( $product, $product ) ) {
 			$parent_row = array_merge( $template, $this->build_base_row( $product, $product ) );
 			// Huvudprodukten ska inte få något värde i Tradera price store om den själv inte ska säljas separat
 			$parent_row['Tradera price store'] = '';
@@ -491,11 +582,14 @@ class WOO_Sello_CSV_Generator {
 
 		foreach ( $product->get_children() as $variation_id ) {
 			$variation = wc_get_product( $variation_id );
-			if ( ! $variation || ! $variation->exists() || ! $this->include_product( $variation ) ) {
+			if ( ! $variation || ! $variation->exists() || ! $this->include_product( $variation, $product ) ) {
 				continue;
 			}
 
-			$row = array_merge( $template, $this->build_base_row( $variation, $product ) );
+			$row = $template;
+			foreach ( $this->build_base_row( $variation, $product ) as $k => $v ) {
+				$row[ $k ] = $v;
+			}
 
 			if ( $parent_sku && $group_type ) {
 				$row['Group sku']  = $parent_sku;
@@ -589,10 +683,11 @@ class WOO_Sello_CSV_Generator {
 	protected function build_base_row( $product, $parent ) {
 		$is_parent_variable = ( $product === $parent && $product->is_type( 'variable' ) );
 		$condition_data     = $this->get_tradera_condition_data( $product, $parent );
+		$is_used            = ( 'Yes' === $condition_data['is_used'] || 'Oanvänt' !== $condition_data['condition'] );
 
 		return array(
 			'Sku'                     => $this->get_sku( $product, $parent ),
-			'Standard name sv'        => $parent->get_name(),
+			'Standard name sv'        => $this->get_clean_name( $parent ),
 			'Standard description sv' => $this->get_clean_description( $product, $parent ),
 			'Tradera price store'     => $is_parent_variable ? '' : $this->get_tradera_price_store( $product, $parent ),
 			'Purchase price'          => $this->get_purchase_price( $product, $parent ),
@@ -603,8 +698,7 @@ class WOO_Sello_CSV_Generator {
 			'Brand'                   => $this->get_brand( $parent ),
 			'Group sku'               => '',
 			'Group type'              => '',
-			'Property Skick'          => $condition_data['condition'],
-			'Property Är begagnad'    => $condition_data['is_used'],
+			'Condition'               => $is_used ? 'used' : 'new',
 		);
 	}
 
@@ -832,6 +926,14 @@ class WOO_Sello_CSV_Generator {
 			return '';
 		}
 
+		// Säkerställ att butikspriset för Tradera alltid inkluderar moms (B2C)
+		if ( method_exists( $product, 'is_taxable' ) && $product->is_taxable() && function_exists( 'wc_get_price_including_tax' ) ) {
+			$calc = (float) wc_get_price_including_tax( $product, array( 'price' => $price_float ) );
+			if ( $calc > 0.0 ) {
+				$price_float = $calc;
+			}
+		}
+
 		// Skriv priset som heltal utan valuta, till exempel 495
 		$price_int = (string) (int) round( $price_float );
 
@@ -887,9 +989,168 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
-	 * Produktbeskrivning som ren text utan HTML-taggar.
+	 * Rensa produktnamn för Tradera (tar bort eventuella HTML-taggar, länkar och URL:er).
+	 *
+	 * @param WC_Product $parent Föräldraprodukten.
+	 * @return string
+	 */
+	protected function get_clean_name( $parent ) {
+		$name = (string) $parent->get_name();
+		if ( '' === trim( $name ) ) {
+			return '';
+		}
+
+		$strip_links = ! isset( $this->settings['sello_strip_links'] ) || ! empty( $this->settings['sello_strip_links'] );
+		if ( $strip_links ) {
+			$name = $this->strip_tradera_links( $name, false );
+		}
+
+		if ( function_exists( 'wp_strip_all_tags' ) ) {
+			$name = wp_strip_all_tags( $name, true );
+		} else {
+			$name = strip_tags( $name );
+		}
+
+		$name = html_entity_decode( $name, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		return trim( preg_replace( '/\s+/', ' ', $name ) );
+	}
+
+	/**
+	 * Tar bort länkar, webbadresser och webbshopshänvisningar på ett snyggt sätt för Tradera.
+	 *
+	 * Tradera förbjuder strikt externa länkar och webbadresser i objektsbeskrivningar.
+	 * Denna metod:
+	 * 1. Processar <a>-taggar:
+	 *    - Om länktexten är en URL eller call-to-action (t.ex. "Klicka här", "Besök Glasprinsen"): tas hela länken bort.
+	 *    - Om länktexten är beskrivande text (t.ex. "Fuga skål"): behålls texten medan själva länken tas bort.
+	 * 2. Tar bort hela rader som är rena butikshänvisningar (t.ex. "Besök gärna vår webbshop på glasprinsen.se...").
+	 * 3. Tar bort råa URL:er (http://, https://, www., glasprinsen.se och angivna domäner).
+	 * 4. Städar upp överflödig interpunktion (t.ex. "För mer info:", "Länk:", tomma parenteser, dubbla punkter).
+	 *
+	 * @param string $text      Texten som ska rensas.
+	 * @param bool   $multiline Huruvida texten kan ha flera rader (sant för beskrivning, falskt för rubrik).
+	 * @return string
+	 */
+	public function strip_tradera_links( $text, $multiline = true ) {
+		if ( '' === trim( $text ) ) {
+			return '';
+		}
+
+		$custom_domains_raw = ! empty( $this->settings['sello_strip_domains'] )
+			? (string) $this->settings['sello_strip_domains']
+			: 'glasprinsen.se, glasprinsen';
+
+		$domains_list = array_filter( array_map( 'trim', explode( ',', strtolower( $custom_domains_raw ) ) ) );
+		if ( ! in_array( 'glasprinsen.se', $domains_list, true ) ) {
+			$domains_list[] = 'glasprinsen.se';
+		}
+		if ( ! in_array( 'glasprinsen', $domains_list, true ) ) {
+			$domains_list[] = 'glasprinsen';
+		}
+
+		// 1. Processa HTML-länkar <a ...>...</a> medan taggstrukturen är intakt
+		$text = preg_replace_callback(
+			'/<a\b[^>]*\bhref=(?:"([^"]*)"|\'([^\']*)\'|([^\s>]+))[^>]*>(.*?)<\/a>/is',
+			function ( $matches ) use ( $domains_list ) {
+				$href = ! empty( $matches[1] ) ? $matches[1] : ( ! empty( $matches[2] ) ? $matches[2] : ( ! empty( $matches[3] ) ? $matches[3] : '' ) );
+				$inner_html  = isset( $matches[4] ) ? $matches[4] : '';
+				$anchor_text = trim( function_exists( 'wp_strip_all_tags' ) ? wp_strip_all_tags( $inner_html, false ) : strip_tags( $inner_html ) );
+
+				$href_lower   = strtolower( $href );
+				$anchor_lower = strtolower( $anchor_text );
+
+				// Kontrollera om målet eller ankartexten är kopplad till Glasprinsen eller domänlistan
+				$is_target_site = false;
+				foreach ( $domains_list as $d ) {
+					if ( false !== strpos( $href_lower, $d ) || false !== strpos( $anchor_lower, $d ) ) {
+						$is_target_site = true;
+						break;
+					}
+				}
+
+				// Kontrollera om ankartexten ser ut som en URL eller domän
+				$is_url_anchor = (
+					0 === strpos( $anchor_lower, 'http://' ) ||
+					0 === strpos( $anchor_lower, 'https://' ) ||
+					0 === strpos( $anchor_lower, 'www.' ) ||
+					false !== strpos( $anchor_lower, 'glasprinsen.se' ) ||
+					$anchor_text === $href
+				);
+
+				// Kontrollera om ankartexten är en call-to-action eller länkfras
+				$cta_pattern = '/^(?:klicka här|läs mer|se mer|här|besök|webbshop|butik|till butiken|vår hemsida|vår butik|mer info|länk|extern länk)/i';
+				$is_cta      = (bool) preg_match( $cta_pattern, $anchor_lower );
+
+				// Om ankartexten är en URL, CTA eller refererar till butiken -> ta bort helt
+				if ( $is_url_anchor || $is_cta || ( $is_target_site && ( false !== strpos( $anchor_lower, 'glasprinsen' ) || '' === $anchor_text ) ) ) {
+					return '';
+				}
+
+				// Om det är en länk med beskrivande varutext (t.ex. "Fuga skål"): behåll texten så meningen blir naturlig
+				return $anchor_text;
+			},
+			$text
+		);
+
+		// 2. Ta bort hela rader som är rena butikshänvisningar (t.ex. "Besök gärna vår webbshop...")
+		if ( $multiline ) {
+			$referral_line_pattern = '/^\s*(?:(?:besök|se även|se alla|hitta fler|välkommen till|följ oss på|kolla in|handla hos)\s+.*?(?:glasprinsen|webbshop|hemsida|webbutik).*?|(?:https?:\/\/)?(?:www\.)?glasprinsen\.se(?:\/\S*)?)\s*$/im';
+			$text                  = preg_replace( $referral_line_pattern, '', $text );
+		}
+
+		// 3. Ta bort alla råa URL:er och webbadresser
+		// http:// och https://
+		$text = preg_replace( '/https?:\/\/[^\s<>"\'()]+/i', '', $text );
+		// www.
+		$text = preg_replace( '/www\.[a-z0-9\-]+(?:\.[a-z0-9\-]+)*(?:\/[^\s<>"\'()]*)?/i', '', $text );
+		// glasprinsen.se med valfri subdomän eller sökväg
+		$text = preg_replace( '/(?:https?:\/\/)?(?:www\.)?glasprinsen\.se(?:\/[^\s<>"\'()]*)?/i', '', $text );
+
+		// Övriga angivna domäner
+		foreach ( $domains_list as $d ) {
+			if ( '' === $d ) {
+				continue;
+			}
+			$escaped = preg_quote( $d, '/' );
+			// Om det är en faktisk domän med punkt (t.ex. glasprinsen.se)
+			if ( false !== strpos( $d, '.' ) ) {
+				$text = preg_replace( '/(?:https?:\/\/)?(?:www\.)?' . $escaped . '(?:\/[^\s<>"\'()]*)?/i', '', $text );
+			} else {
+				// Om det är ett rent nyckelord utan domänändelse, matcha enbart om det föregås av www. eller http(s)://
+				$text = preg_replace( '/(?:https?:\/\/|www\.)' . $escaped . '(?:\.[a-z]{2,})?(?:\/[^\s<>"\'()]*)?/i', '', $text );
+			}
+		}
+
+		// 4. Städa upp kolon före avslutning (t.ex. "För mer info:." -> "För mer info.")
+		$text = preg_replace( '/:\s*([.!?]|<\/(?:p|div|li)>)/i', '$1', $text );
+
+		// 5. Rensa tomma parenteser och hakparenteser: () eller [] eller (se )
+		$text = preg_replace( '/\(\s*(?:se|läs mer|mer info)?\s*[,.;:]*\s*\)/i', '', $text );
+		$text = preg_replace( '/\[\s*(?:se|läs mer|mer info)?\s*[,.;:]*\s*\]/i', '', $text );
+
+		// 6. Rensa hängande kolon, tankstreck eller bindestreck i slutet av rader
+		$text = preg_replace( '/[:\-–—]\s*$/m', '', $text );
+
+		// 7. Ta bort rader som nu bara består av en ensam uppmaningsfras ("För mer information:", "Läs mer:")
+		if ( $multiline ) {
+			$lead_in_pattern = '/^\s*(?:(?:för\s+)?(?:mer\s+info(?:rmation)?|se\s+mer|se\s+även|läs\s+mer|besök\s+oss|länk|källa|kontakt))\s*[:\-–—.]?\s*$/im';
+			$text            = preg_replace( $lead_in_pattern, '', $text );
+		}
+
+		// 8. Normalisera interpunktion och blanksteg
+		$text = preg_replace( '/[ \t]{2,}/', ' ', $text );
+		$text = preg_replace( '/\s+([,.:;!?])/', '$1', $text );
+		$text = preg_replace( '/\.{2,}/', '.', $text );
+		$text = preg_replace( '/,{2,}/', ',', $text );
+
+		return trim( $text );
+	}
+
+	/**
+	 * Produktbeskrivning som ren text utan HTML-taggar och länkar.
 	 *
 	 * - Tar bort kortkoder.
+	 * - Tar bort länkar, webbadresser och Glasprinsen-hänvisningar (om aktivt, standard: ja).
 	 * - Tar bort HTML som <p>, <br>, <div> osv.
 	 * - Behåller meningsfulla radbrytningar och styckeindelning.
 	 * - Avkodar HTML-entiteter till ren text (Å, Ä, Ö, &, etc.).
@@ -921,33 +1182,68 @@ class WOO_Sello_CSV_Generator {
 			$desc = preg_replace( '/\[\/?(?:[a-zA-Z0-9_\-]+)[^\]]*\]/', '', $desc );
 		}
 
-		// 2. Ersätt radbrytande HTML-taggar med en radbrytning för att bevara stycke- och liststruktur
+		// 2. Ta bort länkar, webbadresser och Glasprinsen-hänvisningar för Tradera
+		$strip_links = ! isset( $this->settings['sello_strip_links'] ) || ! empty( $this->settings['sello_strip_links'] );
+		if ( $strip_links ) {
+			$desc = $this->strip_tradera_links( $desc, true );
+		}
+
+		// 3. Ersätt radbrytande HTML-taggar med en radbrytning för att bevara stycke- och liststruktur
 		$desc = preg_replace( '/<br\s*\/?>/i', "\n", $desc );
 		$desc = preg_replace( '/<\/(?:p|div|li|tr|h[1-6])>/i', "\n", $desc );
 
-		// 3. Ta bort resterande HTML-taggar
+		// 4. Ta bort resterande HTML-taggar
 		if ( function_exists( 'wp_strip_all_tags' ) ) {
 			$desc = wp_strip_all_tags( $desc, false );
 		} else {
 			$desc = strip_tags( $desc );
 		}
 
-		// 4. Avkoda HTML-entiteter (&amp;, &aring;, &quot;, &#39; etc.)
+		// 5. Avkoda HTML-entiteter (&amp;, &aring;, &quot;, &#39; etc.)
 		$desc = html_entity_decode( $desc, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
 
-		// 5. Normalisera radbrytningar (\r\n och \r blir \n)
+		// 6. Normalisera radbrytningar (\r\n och \r blir \n)
 		$desc = str_replace( array( "\r\n", "\r" ), "\n", $desc );
 
-		// 6. Rensa onödiga blanksteg i slutet av varje rad
-		$lines       = explode( "\n", $desc );
-		$clean_lines = array();
+		// 7. Om länkrensning är aktiv, kör en efterstädning på ren text
+		if ( $strip_links ) {
+			$desc = preg_replace( '/[:\-–—]\s*$/m', '', $desc );
+			$desc = preg_replace( '/\(\s*[,.;:]*\s*\)/', '', $desc );
+			$desc = preg_replace( '/\[\s*[,.;:]*\s*\]/', '', $desc );
+			$desc = preg_replace( '/^\s*(?:(?:för\s+)?(?:mer\s+info(?:rmation)?|se\s+mer|se\s+även|läs\s+mer|besök\s+oss|länk|källa|kontakt))\s*[:\-–—.]?\s*$/im', '', $desc );
+			$desc = preg_replace( '/\s+([,.:;!?])/', '$1', $desc );
+			$desc = preg_replace( '/\.{2,}/', '.', $desc );
+		}
+
+		// 8. Rensa onödiga blanksteg och filtrera bort skräprader samtidigt som styckebrytningar bevaras
+		$lines          = explode( "\n", $desc );
+		$clean_lines    = array();
+		$last_was_empty = true;
 		foreach ( $lines as $line ) {
-			$clean_lines[] = trim( $line );
+			$trimmed = trim( $line );
+			if ( '' === $trimmed || preg_match( '/^[\s,.:;!\-–—•*#]+$/u', $trimmed ) ) {
+				if ( ! $last_was_empty ) {
+					$clean_lines[]  = '';
+					$last_was_empty = true;
+				}
+				continue;
+			}
+			$clean_lines[]  = $trimmed;
+			$last_was_empty = false;
 		}
 		$desc = implode( "\n", $clean_lines );
 
-		// 7. Komprimera multipla på varandra följande tomma rader (max 2 \n = 1 tom rad emellan stycken)
+		// 9. Komprimera multipla tomma rader (max 2 \n = 1 tom rad emellan stycken)
 		$desc = preg_replace( "/\n{3,}/", "\n\n", $desc );
+
+		// 10. Säkerställ att detaljerat Tradera-skick framgår i beskrivningen för köpare
+		$condition_data = $this->get_tradera_condition_data( $product, $parent );
+		if ( ! empty( $condition_data['condition'] ) ) {
+			$condition_line = 'Skick: ' . $condition_data['condition'];
+			if ( false === stripos( $desc, 'skick:' ) && false === stripos( $desc, 'skick ' ) ) {
+				$desc = '' !== $desc ? $desc . "\n\n" . $condition_line : $condition_line;
+			}
+		}
 
 		$desc = trim( $desc );
 
@@ -1172,23 +1468,36 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
-	 * Märke/varumärke från taxonomi (pa_brand, pa_varumarke m.fl.), produktattribut eller metafält.
+	 * Identifiera varumärke för en produkt eller variation.
 	 *
-	 * @param WC_Product $product Produkten eller föräldraprodukten.
+	 * Kontrollerar:
+	 * 1. Kända varumärkestaxonomier (pa_brand, pa_varumarke m.fl.)
+	 * 2. Anpassade attribut märkta med brand/varumärke/märke/tillverkare
+	 * 3. Metafält för varumärke
+	 * 4. Automatisk fallback till föräldraprodukt för variationer
+	 *
+	 * @param WC_Product $product Produkten eller variationen.
 	 * @return string
 	 */
-	protected function get_brand( $product ) {
-		if ( ! $product ) {
+	public function get_brand( $product ) {
+		if ( ! $product || ! is_object( $product ) ) {
 			return '';
 		}
 
 		$product_id = $product->get_id();
+		$parent_id  = 0;
+		if ( method_exists( $product, 'get_parent_id' ) && $product->get_parent_id() > 0 ) {
+			$parent_id = $product->get_parent_id();
+		}
 
 		// 1. Kända varumärkestaxonomier
 		$known_taxonomies = array( 'pa_brand', 'pa_varumarke', 'pa_marke', 'yith_product_brand', 'pwb-brand', 'brand' );
 		foreach ( $known_taxonomies as $tax ) {
 			if ( taxonomy_exists( $tax ) ) {
 				$terms = get_the_terms( $product_id, $tax );
+				if ( ( ! $terms || is_wp_error( $terms ) ) && $parent_id > 0 ) {
+					$terms = get_the_terms( $parent_id, $tax );
+				}
 				if ( $terms && ! is_wp_error( $terms ) ) {
 					$first = reset( $terms );
 					if ( ! empty( $first->name ) ) {
@@ -1199,23 +1508,61 @@ class WOO_Sello_CSV_Generator {
 		}
 
 		// 2. Produktattribut med etikett brand, varumärke eller tillverkare
-		foreach ( $product->get_attributes() as $key => $attribute ) {
-			$label = strtolower( trim( $this->attribute_name( $key, $product ) ) );
-			if ( in_array( $label, array( 'brand', 'varumärke', 'varumarke', 'märke', 'marke', 'tillverkare' ), true ) ) {
-				if ( $attribute instanceof WC_Product_Attribute_Taxonomy && taxonomy_exists( $attribute->get_name() ) ) {
-					$terms = get_the_terms( $product_id, $attribute->get_name() );
-					if ( $terms && ! is_wp_error( $terms ) ) {
-						$first = reset( $terms );
-						if ( ! empty( $first->name ) ) {
-							return (string) $first->name;
+		if ( method_exists( $product, 'get_attributes' ) ) {
+			foreach ( $product->get_attributes() as $key => $attribute ) {
+				$label = strtolower( trim( $this->attribute_name( $key, $product ) ) );
+				if ( in_array( $label, array( 'brand', 'varumärke', 'varumarke', 'märke', 'marke', 'tillverkare' ), true ) ) {
+					if ( $attribute instanceof WC_Product_Attribute ) {
+						if ( $attribute->is_taxonomy() && taxonomy_exists( $attribute->get_name() ) ) {
+							$terms = get_the_terms( $product_id, $attribute->get_name() );
+							if ( ( ! $terms || is_wp_error( $terms ) ) && $parent_id > 0 ) {
+								$terms = get_the_terms( $parent_id, $attribute->get_name() );
+							}
+							if ( $terms && ! is_wp_error( $terms ) ) {
+								$first = reset( $terms );
+								if ( ! empty( $first->name ) ) {
+									return (string) $first->name;
+								}
+							}
+						} else {
+							$values = $attribute->get_options();
+							if ( ! empty( $values ) ) {
+								$val = reset( $values );
+								if ( is_string( $val ) && '' !== trim( $val ) ) {
+									return trim( $val );
+								}
+							}
 						}
 					}
-				} elseif ( $attribute instanceof WC_Product_Attribute ) {
-					$values = $attribute->get_options();
-					if ( ! empty( $values ) ) {
-						$val = reset( $values );
-						if ( is_string( $val ) && '' !== trim( $val ) ) {
-							return trim( $val );
+				}
+			}
+		}
+
+		// Om produkten är en variation och attribut inte gav något, kontrollera förälderns attribut
+		if ( $parent_id > 0 ) {
+			$parent = wc_get_product( $parent_id );
+			if ( $parent && method_exists( $parent, 'get_attributes' ) ) {
+				foreach ( $parent->get_attributes() as $key => $attribute ) {
+					$label = strtolower( trim( $this->attribute_name( $key, $parent ) ) );
+					if ( in_array( $label, array( 'brand', 'varumärke', 'varumarke', 'märke', 'marke', 'tillverkare' ), true ) ) {
+						if ( $attribute instanceof WC_Product_Attribute ) {
+							if ( $attribute->is_taxonomy() && taxonomy_exists( $attribute->get_name() ) ) {
+								$terms = get_the_terms( $parent_id, $attribute->get_name() );
+								if ( $terms && ! is_wp_error( $terms ) ) {
+									$first = reset( $terms );
+									if ( ! empty( $first->name ) ) {
+										return (string) $first->name;
+									}
+								}
+							} else {
+								$values = $attribute->get_options();
+								if ( ! empty( $values ) ) {
+									$val = reset( $values );
+									if ( is_string( $val ) && '' !== trim( $val ) ) {
+										return trim( $val );
+									}
+								}
+							}
 						}
 					}
 				}
@@ -1225,6 +1572,12 @@ class WOO_Sello_CSV_Generator {
 		// 3. Metafält för varumärke
 		$meta_keys = array( '_brand', 'brand', '_product_brand', 'product_brand', '_varumarke', 'varumarke' );
 		$meta_val  = $this->get_meta_first( $meta_keys, $product );
+		if ( '' === trim( $meta_val ) && $parent_id > 0 ) {
+			$parent_prod = wc_get_product( $parent_id );
+			if ( $parent_prod ) {
+				$meta_val = $this->get_meta_first( $meta_keys, $parent_prod );
+			}
+		}
 		if ( '' !== trim( $meta_val ) ) {
 			return trim( $meta_val );
 		}
@@ -1286,16 +1639,90 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
-	 * Avgör om en produkt/variation ska inkluderas utifrån lagerstatusinställningen.
+	 * Avgör om en produkt/variation ska inkluderas utifrån lagerstatus samt skick- och varumärkesfilter för Sello.
 	 *
-	 * @param WC_Product $product Produkten eller variationen.
+	 * Filtreringsregler:
+	 * 1. Lagerstatus (instock eller om include_outofstock är aktiverat)
+	 * 2. Skick-filter (all, vintage_only, new_only eller custom urval av Tradera-skick)
+	 * 3. Varumärkesfilter (all eller include_only med utvalda varumärken)
+	 *
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten (om tillgänglig).
 	 * @return bool
 	 */
-	protected function include_product( $product ) {
-		if ( 'instock' === $product->get_stock_status() ) {
-			return true;
+	public function include_product( $product, $parent = null ) {
+		if ( ! $product || ! is_object( $product ) ) {
+			return false;
 		}
-		return ! empty( $this->settings['include_outofstock'] );
+
+		// 1. Lagerstatus (instock / onbackorder / outofstock)
+		$is_in_stock = method_exists( $product, 'is_in_stock' ) ? $product->is_in_stock() : in_array( $product->get_stock_status(), array( 'instock', 'onbackorder' ), true );
+		if ( ! $is_in_stock && empty( $this->settings['include_outofstock'] ) ) {
+			return false;
+		}
+
+		if ( null === $parent && method_exists( $product, 'is_type' ) && $product->is_type( 'variation' ) ) {
+			$parent = wc_get_product( $product->get_parent_id() );
+		}
+		if ( null === $parent ) {
+			$parent = $product;
+		}
+
+		// 2. Skick-filter för Sello (Tradera)
+		$cond_mode = ! empty( $this->settings['sello_filter_condition_mode'] ) ? $this->settings['sello_filter_condition_mode'] : 'all';
+		if ( 'all' !== $cond_mode ) {
+			$cond_data = $this->get_tradera_condition_data( $product, $parent );
+			if ( 'vintage_only' === $cond_mode ) {
+				// Vintage / begagnat: Tradera kräver Är begagnad: Yes (eller inte "Oanvänt")
+				if ( 'Yes' !== $cond_data['is_used'] || 'Oanvänt' === $cond_data['condition'] ) {
+					return false;
+				}
+			} elseif ( 'new_only' === $cond_mode ) {
+				// Nya artiklar: Kräver Är begagnad: No och skick "Oanvänt"
+				if ( 'No' !== $cond_data['is_used'] || 'Oanvänt' !== $cond_data['condition'] ) {
+					return false;
+				}
+			} elseif ( 'custom' === $cond_mode ) {
+				$allowed_conds = ! empty( $this->settings['sello_filter_conditions'] ) && is_array( $this->settings['sello_filter_conditions'] )
+					? $this->settings['sello_filter_conditions']
+					: array();
+				if ( ! empty( $allowed_conds ) && ! in_array( $cond_data['condition'], $allowed_conds, true ) ) {
+					return false;
+				}
+			}
+		}
+
+		// 3. Varumärkesfilter för Sello (Tradera)
+		$brand_mode = ! empty( $this->settings['sello_filter_brand_mode'] ) ? $this->settings['sello_filter_brand_mode'] : 'all';
+		if ( 'include_only' === $brand_mode ) {
+			$allowed_brands = ! empty( $this->settings['sello_filter_brands'] ) && is_array( $this->settings['sello_filter_brands'] )
+				? $this->settings['sello_filter_brands']
+				: array();
+
+			if ( ! empty( $allowed_brands ) ) {
+				$brand = $this->get_brand( $parent );
+				if ( '' === $brand && $product !== $parent ) {
+					$brand = $this->get_brand( $product );
+				}
+
+				$matched     = false;
+				$clean_brand = mb_strtolower( trim( (string) $brand ) );
+				if ( '' !== $clean_brand ) {
+					foreach ( $allowed_brands as $allowed ) {
+						if ( mb_strtolower( trim( (string) $allowed ) ) === $clean_brand ) {
+							$matched = true;
+							break;
+						}
+					}
+				}
+
+				if ( ! $matched ) {
+					return false;
+				}
+			}
+		}
+
+		return true;
 	}
 
 	/**
