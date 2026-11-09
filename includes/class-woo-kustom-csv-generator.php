@@ -488,12 +488,17 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 		$currency = strtoupper( (string) $currency );
 
 		// post_title som produktnamn: använd förälderns namn för varianter eller produktens eget namn för enkla produkter.
-		// Extra fält (som skick) läggs inte till i produktnamnet för att hålla namnet rent.
+		// Produktens skick läggs till sist i produktnamnet så att det syns i produktens rubrik.
 		$product_name = $parent ? $parent->get_name() : $product->get_name();
 		if ( empty( $product_name ) && $parent ) {
 			$product_name = get_the_title( $parent->get_id() );
 		}
 		$product_name = trim( (string) $product_name );
+
+		$condition = $this->get_condition( $product, $parent );
+		if ( '' !== $condition && false === stripos( $product_name, $condition ) ) {
+			$product_name .= ' - ' . $condition;
+		}
 
 		$vat_rate_val = $this->get_vat_rate( $product, $parent );
 		$vat_rate_str = ( (float) $vat_rate_val === (float) (int) $vat_rate_val )
