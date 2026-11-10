@@ -36,6 +36,7 @@ const EXCLUDES = [
 	'package.json',
 	'package-lock.json',
 	'README.md',
+	'xl',
 ];
 
 /**
@@ -49,7 +50,7 @@ function collectFiles( dir ) {
 	const entries = fs.readdirSync( dir, { withFileTypes: true } );
 
 	for ( const entry of entries ) {
-		if ( EXCLUDES.includes( entry.name ) ) {
+		if ( EXCLUDES.includes( entry.name ) || entry.name.endsWith( '.xlsx' ) || entry.name.endsWith( '.md' ) ) {
 			continue;
 		}
 

@@ -58,13 +58,15 @@ class WOO_Sello_CSV_Generator {
 			'sello_default_condition' => 'Oanvänt',
 			'sello_strip_links'       => 1,
 			'sello_strip_domains'     => 'glasprinsen.se, glasprinsen',
+			'sello_category_mode'     => 'woocommerce',
+			'sello_custom_category'   => 'importerad',
 		);
 
 		$this->settings = wp_parse_args( (array) $settings, $defaults );
 	}
 
 	/**
-	 * Samtliga 13 tillgängliga standardkolumner för Sello/Tradera.
+	 * Samtliga tillgängliga standardkolumner för Sello/Tradera.
 	 *
 	 * @return string[]
 	 */
@@ -73,6 +75,8 @@ class WOO_Sello_CSV_Generator {
 			'Sku',
 			'Standard name sv',
 			'Standard description sv',
+			'Tradera category',
+			'Category',
 			'Tradera price store',
 			'Purchase price',
 			'Quantity',
@@ -176,82 +180,139 @@ class WOO_Sello_CSV_Generator {
 	public static function get_supported_columns_meta() {
 		return array(
 			'Sku'                     => array(
-				'label'    => __( 'Artikelnummer', 'woo-kustom-export' ),
-				'desc'     => __( 'Unikt artikelnummer (SKU). Rekommenderas för alla artiklar.', 'woo-kustom-export' ),
-				'code'     => 'Sku',
-				'required' => true,
+				'label'      => __( 'Artikelnummer', 'woo-kustom-export' ),
+				'desc'       => __( 'Unikt artikelnummer (SKU) för varje enkel produkt och variation. Kritiskt för matchning.', 'woo-kustom-export' ),
+				'code'       => 'Sku',
+				'sello_code' => 'SKU',
+				'source'     => '_sku',
+				'example'    => 'LNT-8821-BLK-M',
+				'required'   => true,
 			),
 			'Standard name sv'        => array(
-				'label'    => __( 'Produktnamn', 'woo-kustom-export' ),
-				'desc'     => __( 'Produktnamn på svenska för butik och marknadsplats.', 'woo-kustom-export' ),
-				'code'     => 'Standard name sv',
-				'required' => false,
+				'label'      => __( 'Produktnamn', 'woo-kustom-export' ),
+				'desc'       => __( 'Produktnamn på svenska för butik och marknadsplatser.', 'woo-kustom-export' ),
+				'code'       => 'Standard name sv',
+				'sello_code' => 'Name',
+				'source'     => 'post_title',
+				'example'    => 'Skjorta Linne Sand',
+				'required'   => false,
 			),
 			'Standard description sv' => array(
-				'label'    => __( 'Produktbeskrivning', 'woo-kustom-export' ),
-				'desc'     => __( 'Ren textbeskrivning utan HTML-taggar.', 'woo-kustom-export' ),
-				'code'     => 'Standard description sv',
-				'required' => false,
+				'label'      => __( 'Produktbeskrivning', 'woo-kustom-export' ),
+				'desc'       => __( 'Ren textbeskrivning utan HTML-taggar eller kortkoder. Behåller styckebrytningar.', 'woo-kustom-export' ),
+				'code'       => 'Standard description sv',
+				'sello_code' => 'Description',
+				'source'     => 'post_content / excerpt',
+				'example'    => 'Klassisk linneskjorta med rak passform...',
+				'required'   => false,
+			),
+			'Tradera category'        => array(
+				'label'      => __( 'Tradera-kategori (Tradera category)', 'woo-kustom-export' ),
+				'desc'       => __( 'Sellos officiella kolumn för Tradera-kategori. Sätter produktens kategori så att marknadsplatsegenskaper (t.ex. Tradera skick) aktiveras under Details.', 'woo-kustom-export' ),
+				'code'       => 'Tradera category',
+				'sello_code' => 'Tradera category',
+				'source'     => 'Tradera kategori-ID / meta / heuristik',
+				'example'    => '341181',
+				'required'   => true,
+			),
+			'Category'                => array(
+				'label'      => __( 'Intern kategori (Category)', 'woo-kustom-export' ),
+				'desc'       => __( 'Sellos allmänna interna kategorifält för sortering och mappning inom Sello.', 'woo-kustom-export' ),
+				'code'       => 'Category',
+				'sello_code' => 'Category',
+				'source'     => 'product_cat',
+				'example'    => 'Belysning > Kristallkronor',
+				'required'   => false,
 			),
 			'Tradera price store'     => array(
-				'label'    => __( 'Tradera butikspris', 'woo-kustom-export' ),
-				'desc'     => __( 'Fast försäljningspris i heltal utan valuta.', 'woo-kustom-export' ),
-				'code'     => 'Tradera price store',
-				'required' => false,
+				'label'      => __( 'Tradera butikspris', 'woo-kustom-export' ),
+				'desc'       => __( 'Fast försäljningspris i heltal utan valuta. Ersätter Price och Calculate.', 'woo-kustom-export' ),
+				'code'       => 'Tradera price store',
+				'sello_code' => 'Tradera Price',
+				'source'     => '_regular_price / aktivt pris',
+				'example'    => '495',
+				'required'   => false,
 			),
 			'Purchase price'          => array(
-				'label'    => __( 'Inköpspris', 'woo-kustom-export' ),
-				'desc'     => __( 'Inköpspris/kalkylpris om angivet i WooCommerce.', 'woo-kustom-export' ),
-				'code'     => 'Purchase price',
-				'required' => false,
+				'label'      => __( 'Inköpspris', 'woo-kustom-export' ),
+				'desc'       => __( 'Inköpspris/kalkylpris om angivet i WooCommerce.', 'woo-kustom-export' ),
+				'code'       => 'Purchase price',
+				'sello_code' => 'Cost price',
+				'source'     => '_purchase_price / _cost',
+				'example'    => '180',
+				'required'   => false,
 			),
 			'Quantity'                => array(
-				'label'    => __( 'Lagersaldo', 'woo-kustom-export' ),
-				'desc'     => __( 'Aktuellt lagersaldo som heltal.', 'woo-kustom-export' ),
-				'code'     => 'Quantity',
-				'required' => false,
+				'label'      => __( 'Lagersaldo', 'woo-kustom-export' ),
+				'desc'       => __( 'Aktuellt lagersaldo som heltal. Tomt om lagerhantering är inaktiv.', 'woo-kustom-export' ),
+				'code'       => 'Quantity',
+				'sello_code' => 'Stock',
+				'source'     => '_stock',
+				'example'    => '42',
+				'required'   => false,
 			),
 			'Tax'                     => array(
-				'label'    => __( 'Momssats', 'woo-kustom-export' ),
-				'desc'     => __( 'Momssats i procent som heltal (t.ex. 25).', 'woo-kustom-export' ),
-				'code'     => 'Tax',
-				'required' => false,
+				'label'      => __( 'Momssats', 'woo-kustom-export' ),
+				'desc'       => __( 'Momssats i procent som heltal (normalt 25 för Sverige, 12 för livsmedel).', 'woo-kustom-export' ),
+				'code'       => 'Tax',
+				'sello_code' => 'Vat rate',
+				'source'     => 'tax_class',
+				'example'    => '25',
+				'required'   => false,
 			),
 			'Weight'                  => array(
-				'label'    => __( 'Vikt', 'woo-kustom-export' ),
-				'desc'     => __( 'Produktens vikt konverterad till gram.', 'woo-kustom-export' ),
-				'code'     => 'Weight',
-				'required' => false,
+				'label'      => __( 'Vikt', 'woo-kustom-export' ),
+				'desc'       => __( 'Produktens vikt automatiskt konverterad till gram.', 'woo-kustom-export' ),
+				'code'       => 'Weight',
+				'sello_code' => 'Weight (g)',
+				'source'     => '_weight',
+				'example'    => '350',
+				'required'   => false,
 			),
 			'Images'                  => array(
-				'label'    => __( 'Produktbilder', 'woo-kustom-export' ),
-				'desc'     => __( 'Fullständiga https:// bild-URL:er separerade med komma.', 'woo-kustom-export' ),
-				'code'     => 'Images',
-				'required' => false,
+				'label'      => __( 'Produktbilder', 'woo-kustom-export' ),
+				'desc'       => __( 'Fullständiga https:// bild-URL:er separerade med komma.', 'woo-kustom-export' ),
+				'code'       => 'Images',
+				'sello_code' => 'Image URLs',
+				'source'     => 'Bild- & galleri-ID:n',
+				'example'    => 'https://butik.se/img1.jpg,https://butik.se/img2.jpg',
+				'required'   => false,
 			),
 			'Brand'                   => array(
-				'label'    => __( 'Varumärke', 'woo-kustom-export' ),
-				'desc'     => __( 'Varumärke hämtat från taxonomi pa_brand eller attribut.', 'woo-kustom-export' ),
-				'code'     => 'Brand',
-				'required' => false,
+				'label'      => __( 'Varumärke', 'woo-kustom-export' ),
+				'desc'       => __( 'Varumärke hämtat från taxonomi pa_brand eller attribut.', 'woo-kustom-export' ),
+				'code'       => 'Brand',
+				'sello_code' => 'Manufacturer',
+				'source'     => 'pa_brand / attribut',
+				'example'    => 'Linthor Heritage',
+				'required'   => false,
 			),
 			'Group sku'               => array(
-				'label'    => __( 'Grupp-SKU', 'woo-kustom-export' ),
-				'desc'     => __( 'Huvudproduktens SKU för variantgruppering.', 'woo-kustom-export' ),
-				'code'     => 'Group sku',
-				'required' => false,
+				'label'      => __( 'Grupp-SKU', 'woo-kustom-export' ),
+				'desc'       => __( 'Huvudproduktens SKU för variantgruppering. Binder ihop variationer.', 'woo-kustom-export' ),
+				'code'       => 'Group sku',
+				'sello_code' => 'Parent SKU',
+				'source'     => 'Förälderns _sku',
+				'example'    => 'LNT-8821',
+				'required'   => false,
 			),
 			'Group type'              => array(
-				'label'    => __( 'Grupptyp', 'woo-kustom-export' ),
-				'desc'     => __( 'Variantdimension (color, size, model).', 'woo-kustom-export' ),
-				'code'     => 'Group type',
-				'required' => false,
+				'label'      => __( 'Grupptyp (Group type)', 'woo-kustom-export' ),
+				'desc'       => __( 'Sellos typ för variantgruppering (t.ex. model, size, color för varianter).', 'woo-kustom-export' ),
+				'code'       => 'Group type',
+				'sello_code' => 'Group type',
+				'source'     => 'Beräknas automatiskt (model / size / color)',
+				'example'    => 'model',
+				'required'   => false,
 			),
 			'Condition'               => array(
-				'label'    => __( 'Produktens skick (Condition)', 'woo-kustom-export' ),
-				'desc'     => __( 'Sellos officiella skickkolumn (new eller used). Sätts automatiskt till new för oanvända artiklar och used för vintage/begagnat, vilket styr Traderas skick.', 'woo-kustom-export' ),
-				'code'     => 'Condition',
-				'required' => false,
+				'label'      => __( 'Produktens skick (Condition)', 'woo-kustom-export' ),
+				'desc'       => __( 'Sellos officiella skickkolumn (new eller used). Sätts automatiskt till new för oanvända artiklar och used för vintage/begagnat, vilket styr Traderas skick.', 'woo-kustom-export' ),
+				'code'       => 'Condition',
+				'sello_code' => 'Condition',
+				'source'     => 'Skick / _sello_condition',
+				'example'    => 'used',
+				'required'   => false,
 			),
 		);
 	}
@@ -277,9 +338,25 @@ class WOO_Sello_CSV_Generator {
 		foreach ( $all_columns as $col ) {
 			if ( ! empty( $this->settings['sello_columns'][ $col ] ) ) {
 				$selected[] = $col;
+			} elseif ( 'Tradera category' === $col && ( ! isset( $this->settings['sello_columns'] ) || ! array_key_exists( 'Tradera category', $this->settings['sello_columns'] ) ) ) {
+				// Om användaren sparade inställningar i en tidigare version innan 'Tradera category' lades till
+				$selected[] = $col;
 			} elseif ( 'Condition' === $col && ( ! empty( $this->settings['sello_columns']['Property Skick'] ) || ! empty( $this->settings['sello_columns']['Property Är begagnad'] ) ) ) {
 				// Bakåtkompatibilitet: om användaren tidigare hade Property Skick/Är begagnad ibockat, inkludera Condition
 				$selected[] = $col;
+			} elseif ( 'Tradera category' === $col && ! empty( $this->settings['sello_columns']['Category'] ) ) {
+				// Bakåtkompatibilitet: om användaren tidigare hade Category ibockat
+				$selected[] = $col;
+			}
+		}
+
+		// Om användaren specifikt även valt att exportera intern kategori (Category)
+		if ( ! empty( $this->settings['sello_columns']['Category'] ) && ! in_array( 'Category', $selected, true ) ) {
+			$tc_pos = array_search( 'Tradera category', $selected, true );
+			if ( false !== $tc_pos ) {
+				array_splice( $selected, $tc_pos + 1, 0, array( 'Category' ) );
+			} else {
+				$selected[] = 'Category';
 			}
 		}
 
@@ -342,7 +419,7 @@ class WOO_Sello_CSV_Generator {
 	 * Använder UTF-8 med BOM och komma som avgränsare.
 	 */
 	public function stream_csv() {
-		$filename = $this->get_filename_prefix() . gmdate( 'Y-m-d-Hi' ) . '.' . $this->get_filename_extension();
+		$filename = $this->get_filename_prefix() . gmdate( 'Y-m-d-His' ) . '.' . $this->get_filename_extension();
 
 		nocache_headers();
 		header( 'Content-Type: text/csv; charset=utf-8' );
@@ -573,8 +650,10 @@ class WOO_Sello_CSV_Generator {
 			$parent_row = array_merge( $template, $this->build_base_row( $product, $product ) );
 			// Huvudprodukten ska inte få något värde i Tradera price store om den själv inte ska säljas separat
 			$parent_row['Tradera price store'] = '';
-			if ( $parent_sku && $group_type ) {
-				$parent_row['Group sku']  = $parent_sku;
+			if ( $parent_sku ) {
+				$parent_row['Group sku'] = $parent_sku;
+			}
+			if ( $group_type ) {
 				$parent_row['Group type'] = $group_type;
 			}
 			yield $parent_row;
@@ -591,8 +670,10 @@ class WOO_Sello_CSV_Generator {
 				$row[ $k ] = $v;
 			}
 
-			if ( $parent_sku && $group_type ) {
-				$row['Group sku']  = $parent_sku;
+			if ( $parent_sku ) {
+				$row['Group sku'] = $parent_sku;
+			}
+			if ( $group_type ) {
 				$row['Group type'] = $group_type;
 			}
 
@@ -685,21 +766,31 @@ class WOO_Sello_CSV_Generator {
 		$condition_data     = $this->get_tradera_condition_data( $product, $parent );
 		$is_used            = ( 'Yes' === $condition_data['is_used'] || 'Oanvänt' !== $condition_data['condition'] );
 
-		return array(
+		$row = array(
 			'Sku'                     => $this->get_sku( $product, $parent ),
 			'Standard name sv'        => $this->get_clean_name( $parent ),
 			'Standard description sv' => $this->get_clean_description( $product, $parent ),
+			'Tradera category'        => $this->get_tradera_category( $product, $parent ),
+			'Category'                => $this->get_internal_category( $product, $parent ),
 			'Tradera price store'     => $is_parent_variable ? '' : $this->get_tradera_price_store( $product, $parent ),
 			'Purchase price'          => $this->get_purchase_price( $product, $parent ),
 			'Quantity'                => $this->get_quantity( $product ),
 			'Tax'                     => $this->get_tax_rate( $product, $parent ),
 			'Weight'                  => $this->get_weight_grams( $product, $parent ),
 			'Images'                  => $this->get_images( $product, $parent ),
-			'Brand'                   => $this->get_brand( $parent ),
+			'Brand'                   => $this->get_brand( $product, $parent ),
 			'Group sku'               => '',
 			'Group type'              => '',
 			'Condition'               => $is_used ? 'used' : 'new',
 		);
+
+		foreach ( $row as $k => $v ) {
+			if ( is_string( $v ) && in_array( strtolower( trim( $v ) ), array( 'undefined', 'null' ), true ) ) {
+				$row[ $k ] = '';
+			}
+		}
+
+		return $row;
 	}
 
 	/**
@@ -927,10 +1018,17 @@ class WOO_Sello_CSV_Generator {
 		}
 
 		// Säkerställ att butikspriset för Tradera alltid inkluderar moms (B2C)
-		if ( method_exists( $product, 'is_taxable' ) && $product->is_taxable() && function_exists( 'wc_get_price_including_tax' ) ) {
-			$calc = (float) wc_get_price_including_tax( $product, array( 'price' => $price_float ) );
-			if ( $calc > 0.0 ) {
-				$price_float = $calc;
+		if ( method_exists( $product, 'is_taxable' ) && $product->is_taxable() ) {
+			if ( function_exists( 'wc_get_price_including_tax' ) ) {
+				$calc = (float) wc_get_price_including_tax( $product, array( 'price' => $price_float ) );
+				if ( $calc > $price_float ) {
+					$price_float = $calc;
+				} elseif ( function_exists( 'wc_prices_include_tax' ) && ! wc_prices_include_tax() ) {
+					$tax_rate = (float) $this->get_tax_rate( $product, $parent );
+					if ( $tax_rate > 0.0 ) {
+						$price_float = $price_float * ( 1.0 + ( $tax_rate / 100.0 ) );
+					}
+				}
 			}
 		}
 
@@ -1215,6 +1313,11 @@ class WOO_Sello_CSV_Generator {
 			$desc = preg_replace( '/\.{2,}/', '.', $desc );
 		}
 
+		// 7b. Ta bort rader med oinitierade variabler som "Läs mer om undefined." samt eventuella "undefined"
+		$desc = preg_replace( '/^\s*läs\s+mer\s+om\s+undefined\.?\s*$/imu', '', $desc );
+		$desc = preg_replace( '/\s*läs\s+mer\s+om\s+undefined\.?/iu', '', $desc );
+		$desc = preg_replace( '/\bundefined\b/i', '', $desc );
+
 		// 8. Rensa onödiga blanksteg och filtrera bort skräprader samtidigt som styckebrytningar bevaras
 		$lines          = explode( "\n", $desc );
 		$clean_lines    = array();
@@ -1240,7 +1343,7 @@ class WOO_Sello_CSV_Generator {
 		$condition_data = $this->get_tradera_condition_data( $product, $parent );
 		if ( ! empty( $condition_data['condition'] ) ) {
 			$condition_line = 'Skick: ' . $condition_data['condition'];
-			if ( false === stripos( $desc, 'skick:' ) && false === stripos( $desc, 'skick ' ) ) {
+			if ( ! preg_match( '/\bskick\s*:\s*/iu', $desc ) ) {
 				$desc = '' !== $desc ? $desc . "\n\n" . $condition_line : $condition_line;
 			}
 		}
@@ -1251,16 +1354,270 @@ class WOO_Sello_CSV_Generator {
 	}
 
 	/**
-	 * Lagersaldo: heltalet i lager, 0 för produkter ur lager, tomt om lager inte hanteras.
+	 * Hämta butikens interna kategori för Sello-kolumnen 'Category'.
+	 *
+	 * Respekterar inställningen:
+	 * - 'woocommerce' (standard): Hämtar aktuell kategori från WooCommerce.
+	 * - 'fixed': Använder samma fasta kategori för samtliga produkter (t.ex. "importerad").
+	 *
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten.
+	 * @return string
+	 */
+	public function get_internal_category( $product, $parent = null ) {
+		$mode = ! empty( $this->settings['sello_category_mode'] ) ? $this->settings['sello_category_mode'] : 'woocommerce';
+
+		// Om användaren valt en och samma fasta kategori för alla produkter
+		if ( 'fixed' === $mode ) {
+			$fixed = ! empty( $this->settings['sello_custom_category'] ) ? trim( (string) $this->settings['sello_custom_category'] ) : 'importerad';
+			return (string) apply_filters( 'woo_kustom_sello_internal_category', $fixed, $product, $parent );
+		}
+
+		// Standard: hämta aktuell kategori från WooCommerce
+		$main          = $parent ? $parent : $product;
+		$category_name = '';
+
+		// 1. Kontrollera Yoast SEO primär kategori om aktivt
+		$primary_cat_id = (int) get_post_meta( $main->get_id(), '_yoast_wpseo_primary_product_cat', true );
+		if ( $primary_cat_id > 0 ) {
+			$term = get_term( $primary_cat_id, 'product_cat' );
+			if ( $term && ! is_wp_error( $term ) && ! empty( $term->name ) ) {
+				$category_name = $term->name;
+			}
+		}
+
+		// 2. Kontrollera Rank Math primär kategori om aktivt
+		if ( '' === $category_name ) {
+			$rank_math_cat_id = (int) get_post_meta( $main->get_id(), 'rank_math_primary_category', true );
+			if ( $rank_math_cat_id > 0 ) {
+				$term = get_term( $rank_math_cat_id, 'product_cat' );
+				if ( $term && ! is_wp_error( $term ) && ! empty( $term->name ) ) {
+					$category_name = $term->name;
+				}
+			}
+		}
+
+		// 3. Hämta tilldelade kategorier via WooCommerce
+		if ( '' === $category_name && method_exists( $main, 'get_category_ids' ) ) {
+			$cat_ids = $main->get_category_ids();
+			if ( ! empty( $cat_ids ) ) {
+				// Föredra den mest specifika underkategorin (störst hierarkiskt djup)
+				$best_term = null;
+				$max_depth = -1;
+				foreach ( $cat_ids as $cat_id ) {
+					$term = get_term( (int) $cat_id, 'product_cat' );
+					if ( $term && ! is_wp_error( $term ) ) {
+						$ancestors = get_ancestors( $term->term_id, 'product_cat', 'taxonomy' );
+						$depth     = is_array( $ancestors ) ? count( $ancestors ) : 0;
+						if ( $depth > $max_depth ) {
+							$max_depth = $depth;
+							$best_term = $term;
+						}
+					}
+				}
+				if ( $best_term && ! empty( $best_term->name ) ) {
+					$category_name = $best_term->name;
+				}
+			}
+		}
+
+		// 4. Fallback till wp_get_post_terms om get_category_ids inte gav träff
+		if ( '' === $category_name ) {
+			$terms = wp_get_post_terms( $main->get_id(), 'product_cat', array( 'fields' => 'names' ) );
+			if ( ! is_wp_error( $terms ) && ! empty( $terms ) ) {
+				$category_name = (string) reset( $terms );
+			}
+		}
+
+		// Om produkten helt saknar kategori i butiken och en anpassad fallback finns
+		if ( '' === trim( $category_name ) && ! empty( $this->settings['sello_custom_category'] ) ) {
+			$category_name = trim( (string) $this->settings['sello_custom_category'] );
+		}
+
+		return (string) apply_filters( 'woo_kustom_sello_internal_category', trim( $category_name ), $product, $parent );
+	}
+
+	/**
+	 * Hämta Traderas officiella numeriska kategori-ID för Sello-kolumnen 'Tradera category'.
+	 *
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten.
+	 * @return string Numeriskt Tradera kategori-ID.
+	 */
+	public function get_tradera_category( $product, $parent = null ) {
+		$internal_cat = $this->get_internal_category( $product, $parent );
+		$tradera_cat  = self::convert_to_tradera_category( $internal_cat, $product, $parent );
+
+		return (string) apply_filters( 'woo_kustom_sello_tradera_category', trim( $tradera_cat ), $product, $parent );
+	}
+
+	/**
+	 * Hämta kategori för Sello-export (bakåtkompatibelt alias som anropar get_tradera_category).
+	 *
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten.
+	 * @return string
+	 */
+	public function get_category( $product, $parent = null ) {
+		$cat = $this->get_tradera_category( $product, $parent );
+		return (string) apply_filters( 'woo_kustom_sello_category', $cat, $product, $parent );
+	}
+
+	/**
+	 * Hämta Tradera-kategorier från CSV-databasen.
+	 *
+	 * @return array<string,array{id:string,parent_id:string,name:string,crumb:string,path:string}>
+	 */
+	public static function get_tradera_categories() {
+		static $cached = null;
+		if ( null !== $cached ) {
+			return $cached;
+		}
+
+		$cached = array();
+		$file   = dirname( __FILE__ ) . '/data/tradera-categories.csv';
+		if ( ! file_exists( $file ) || ! is_readable( $file ) ) {
+			return $cached;
+		}
+
+		$handle = fopen( $file, 'r' );
+		if ( ! $handle ) {
+			return $cached;
+		}
+
+		$header = fgetcsv( $handle, 0, ',' );
+		if ( $header ) {
+			while ( ( $row = fgetcsv( $handle, 0, ',' ) ) !== false ) {
+				if ( ! empty( $row[0] ) ) {
+					$cached[ (string) $row[0] ] = array(
+						'id'        => (string) $row[0],
+						'parent_id' => isset( $row[1] ) ? (string) $row[1] : '',
+						'name'      => isset( $row[2] ) ? (string) $row[2] : '',
+						'crumb'     => isset( $row[3] ) ? (string) $row[3] : '',
+						'path'      => isset( $row[4] ) ? (string) $row[4] : '',
+					);
+				}
+			}
+		}
+		fclose( $handle );
+
+		return $cached;
+	}
+
+	/**
+	 * Konvertera en WooCommerce-kategori eller produktnamn till Traderas officiella kategori-ID.
+	 *
+	 * @param string          $category_name WooCommerce-kategorinamn eller initial kategori.
+	 * @param WC_Product|null $product       Aktuell produkt.
+	 * @param WC_Product|null $parent        Föräldraprodukt.
+	 * @return string Tradera Kategori-ID eller ursprungligt namn om ingen matchning hittas.
+	 */
+	public static function convert_to_tradera_category( $category_name, $product = null, $parent = null ) {
+		$main = $parent ? $parent : $product;
+
+		// 1. Om värdet redan är ett numeriskt Tradera Kategori-ID
+		if ( is_numeric( $category_name ) && (int) $category_name > 0 ) {
+			return (string) (int) $category_name;
+		}
+
+		// 2. Kontrollera om produkten har ett specifikt Tradera-kategori-ID sparat i post meta
+		if ( $main && method_exists( $main, 'get_id' ) ) {
+			foreach ( array( '_tradera_category_id', 'tradera_category_id', '_tradera_category', 'tradera_category', '_sello_category_id' ) as $meta_key ) {
+				$val = get_post_meta( $main->get_id(), $meta_key, true );
+				if ( ! empty( $val ) && ( is_numeric( $val ) || is_string( $val ) ) ) {
+					return is_numeric( $val ) ? (string) (int) $val : trim( (string) $val );
+				}
+			}
+		}
+
+		// 3. Söksträng för heuristisk matchning (kombinera kategorinamn och produktnamn)
+		$search_text = strtolower( trim( (string) $category_name ) );
+		if ( $main && method_exists( $main, 'get_name' ) ) {
+			$search_text .= ' ' . strtolower( (string) $main->get_name() );
+		}
+
+		// Snabbmatchning för kända domänspecifika termer (t.ex. Glasprinsen / belysning / glas)
+		if ( false !== strpos( $search_text, 'prism' ) || false !== strpos( $search_text, 'piggprism' ) ) {
+			return '341181'; // Prisms & lamp parts
+		}
+		if ( false !== strpos( $search_text, 'kristallkrona' ) || false !== strpos( $search_text, 'takkrona' ) ) {
+			return '344611'; // Crystal Chandeliers
+		}
+		if ( false !== strpos( $search_text, 'bordslampa' ) ) {
+			return '1000001'; // Table lamps
+		}
+		if ( false !== strpos( $search_text, 'golvlampa' ) ) {
+			return '344593'; // Floor lamps
+		}
+		if ( false !== strpos( $search_text, 'vägglampa' ) || false !== strpos( $search_text, 'vagglampa' ) ) {
+			return '344592'; // Wall lamps
+		}
+		if ( false !== strpos( $search_text, 'taklampa' ) || false !== strpos( $search_text, 'takarmatur' ) ) {
+			return '344664'; // Ceiling Lights
+		}
+		if ( false !== strpos( $search_text, 'vinglas' ) ) {
+			return '341195'; // Wine Glasses
+		}
+		if ( false !== strpos( $search_text, 'champagneglas' ) ) {
+			return '1001291'; // Champagne Glasses
+		}
+		if ( false !== strpos( $search_text, 'karaff' ) || false !== strpos( $search_text, 'flaska' ) ) {
+			return '341194'; // Bottles & decanters
+		}
+		if ( false !== strpos( $search_text, 'dricksglas' ) ) {
+			return '341196'; // Glasses
+		}
+		if ( preg_match( '/\bvas(?:er)?\b/iu', $search_text ) ) {
+			return '200708'; // Vases
+		}
+		if ( preg_match( '/\b(?:sk[åa]l(?:ar)?|tallrik(?:ar)?|assiett(?:er)?)\b/iu', $search_text ) ) {
+			return '200707'; // Bowls
+		}
+		if ( false !== strpos( $search_text, 'konstglas' ) ) {
+			return '200706'; // Art glass signed
+		}
+
+		// 4. Sök i Tradera-kategoridatabasen efter namn eller crumb
+		$categories = self::get_tradera_categories();
+		if ( ! empty( $categories ) && ! empty( $category_name ) ) {
+			$clean_cat = strtolower( trim( (string) $category_name ) );
+			// Exakt namn-match
+			foreach ( $categories as $id => $cat ) {
+				if ( strtolower( $cat['name'] ) === $clean_cat ) {
+					return (string) $id;
+				}
+			}
+			// Crumb-match
+			foreach ( $categories as $id => $cat ) {
+				if ( false !== strpos( strtolower( $cat['crumb'] ), $clean_cat ) ) {
+					return (string) $id;
+				}
+			}
+		}
+
+		// 5. Fallback: Tradera category kräver ett numeriskt kategori-ID i Sello.
+		if ( is_numeric( $category_name ) && (int) $category_name > 0 ) {
+			return (string) (int) $category_name;
+		}
+
+		// Standard Tradera kategori-ID (341181: Belysning / prismor / inredning)
+		return (string) apply_filters( 'woo_kustom_sello_default_tradera_category_id', '341181', $category_name, $product, $parent );
+	}
+
+	/**
+	 * Lagersaldo: heltalet i lager, 0 för produkter ur lager.
+	 * Om lagerhantering inte är aktiv i WooCommerce sätts 1 för varor i lager och 0 för slutsålda.
 	 *
 	 * @param WC_Product $product Produkten eller variationen.
 	 * @return string
 	 */
 	protected function get_quantity( $product ) {
-		if ( ! $product->get_manage_stock() ) {
-			return '';
+		if ( method_exists( $product, 'get_manage_stock' ) && $product->get_manage_stock() ) {
+			return (string) (int) $product->get_stock_quantity();
 		}
-		return (string) (int) $product->get_stock_quantity();
+
+		$in_stock = method_exists( $product, 'is_in_stock' ) ? $product->is_in_stock() : ( 'instock' === $product->get_stock_status() );
+		return $in_stock ? '1' : '0';
 	}
 
 	/**
@@ -1476,10 +1833,11 @@ class WOO_Sello_CSV_Generator {
 	 * 3. Metafält för varumärke
 	 * 4. Automatisk fallback till föräldraprodukt för variationer
 	 *
-	 * @param WC_Product $product Produkten eller variationen.
+	 * @param WC_Product      $product Produkten eller variationen.
+	 * @param WC_Product|null $parent  Föräldraprodukten.
 	 * @return string
 	 */
-	public function get_brand( $product ) {
+	public function get_brand( $product, $parent = null ) {
 		if ( ! $product || ! is_object( $product ) ) {
 			return '';
 		}
@@ -1488,6 +1846,8 @@ class WOO_Sello_CSV_Generator {
 		$parent_id  = 0;
 		if ( method_exists( $product, 'get_parent_id' ) && $product->get_parent_id() > 0 ) {
 			$parent_id = $product->get_parent_id();
+		} elseif ( $parent && is_object( $parent ) && $parent !== $product ) {
+			$parent_id = $parent->get_id();
 		}
 
 		// 1. Kända varumärkestaxonomier
@@ -1500,7 +1860,7 @@ class WOO_Sello_CSV_Generator {
 				}
 				if ( $terms && ! is_wp_error( $terms ) ) {
 					$first = reset( $terms );
-					if ( ! empty( $first->name ) ) {
+					if ( ! empty( $first->name ) && ! in_array( strtolower( trim( $first->name ) ), array( 'undefined', 'null' ), true ) ) {
 						return (string) $first->name;
 					}
 				}
@@ -1520,7 +1880,7 @@ class WOO_Sello_CSV_Generator {
 							}
 							if ( $terms && ! is_wp_error( $terms ) ) {
 								$first = reset( $terms );
-								if ( ! empty( $first->name ) ) {
+								if ( ! empty( $first->name ) && ! in_array( strtolower( trim( $first->name ) ), array( 'undefined', 'null' ), true ) ) {
 									return (string) $first->name;
 								}
 							}
@@ -1528,7 +1888,7 @@ class WOO_Sello_CSV_Generator {
 							$values = $attribute->get_options();
 							if ( ! empty( $values ) ) {
 								$val = reset( $values );
-								if ( is_string( $val ) && '' !== trim( $val ) ) {
+								if ( is_string( $val ) && '' !== trim( $val ) && ! in_array( strtolower( trim( $val ) ), array( 'undefined', 'null' ), true ) ) {
 									return trim( $val );
 								}
 							}
@@ -1550,7 +1910,7 @@ class WOO_Sello_CSV_Generator {
 								$terms = get_the_terms( $parent_id, $attribute->get_name() );
 								if ( $terms && ! is_wp_error( $terms ) ) {
 									$first = reset( $terms );
-									if ( ! empty( $first->name ) ) {
+									if ( ! empty( $first->name ) && ! in_array( strtolower( trim( $first->name ) ), array( 'undefined', 'null' ), true ) ) {
 										return (string) $first->name;
 									}
 								}
@@ -1558,7 +1918,7 @@ class WOO_Sello_CSV_Generator {
 								$values = $attribute->get_options();
 								if ( ! empty( $values ) ) {
 									$val = reset( $values );
-									if ( is_string( $val ) && '' !== trim( $val ) ) {
+									if ( is_string( $val ) && '' !== trim( $val ) && ! in_array( strtolower( trim( $val ) ), array( 'undefined', 'null' ), true ) ) {
 										return trim( $val );
 									}
 								}
@@ -1578,11 +1938,19 @@ class WOO_Sello_CSV_Generator {
 				$meta_val = $this->get_meta_first( $meta_keys, $parent_prod );
 			}
 		}
+
+		$brand = '';
 		if ( '' !== trim( $meta_val ) ) {
-			return trim( $meta_val );
+			$brand = trim( $meta_val );
+		} else {
+			$brand = (string) apply_filters( 'woo_kustom_sello_brand', '', $product );
 		}
 
-		return (string) apply_filters( 'woo_kustom_sello_brand', '', $product );
+		if ( in_array( strtolower( trim( $brand ) ), array( 'undefined', 'null' ), true ) ) {
+			return '';
+		}
+
+		return trim( $brand );
 	}
 
 	/**
@@ -1596,7 +1964,10 @@ class WOO_Sello_CSV_Generator {
 		foreach ( $keys as $key ) {
 			$value = $product->get_meta( $key, true );
 			if ( '' !== $value && null !== $value ) {
-				return (string) $value;
+				$str = trim( (string) $value );
+				if ( ! in_array( strtolower( $str ), array( 'undefined', 'null' ), true ) && '' !== $str ) {
+					return $str;
+				}
 			}
 		}
 		return '';
@@ -1632,6 +2003,9 @@ class WOO_Sello_CSV_Generator {
 
 			foreach ( $products as $product ) {
 				yield $product;
+				if ( function_exists( 'clean_post_cache' ) && method_exists( $product, 'get_id' ) ) {
+					clean_post_cache( $product->get_id() );
+				}
 			}
 
 			$page++;
@@ -1686,7 +2060,7 @@ class WOO_Sello_CSV_Generator {
 				$allowed_conds = ! empty( $this->settings['sello_filter_conditions'] ) && is_array( $this->settings['sello_filter_conditions'] )
 					? $this->settings['sello_filter_conditions']
 					: array();
-				if ( ! empty( $allowed_conds ) && ! in_array( $cond_data['condition'], $allowed_conds, true ) ) {
+				if ( empty( $allowed_conds ) || ! in_array( $cond_data['condition'], $allowed_conds, true ) ) {
 					return false;
 				}
 			}
@@ -1781,8 +2155,14 @@ class WOO_Sello_CSV_Generator {
 			return $value;
 		}
 
-		if ( '' !== $value && in_array( $value[0], array( '=', '+', '-', '@' ), true ) ) {
-			return "'" . $value;
+		if ( '' !== $value ) {
+			$first = $value[0];
+			if ( '=' === $first || '@' === $first ) {
+				return "'" . $value;
+			}
+			if ( ( '+' === $first || '-' === $first ) && preg_match( '/^[+\-][a-zA-Z_]/', $value ) ) {
+				return "'" . $value;
+			}
 		}
 
 		return $value;

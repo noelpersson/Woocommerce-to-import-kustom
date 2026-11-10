@@ -278,7 +278,9 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 			$selected = array( (string) $this->settings['custom_attribute'] );
 		}
 
-		$selected = array_values( array_unique( array_filter( array_map( 'strtolower', array_map( 'trim', $selected ) ) ) ) );
+		$selected = array_values( array_unique( array_filter( array_map( function ( $s ) {
+			return function_exists( 'mb_strtolower' ) ? mb_strtolower( trim( (string) $s ), 'UTF-8' ) : strtolower( trim( (string) $s ) );
+		}, $selected ) ) ) );
 
 		// Exkludera alltid skick ur separata kolumner.
 		$excluded = array( 'skick', 'pa_skick', 'condition', 'pa_condition', 'tillstånd', 'tillstand', 'pa_tillstand' );
@@ -420,7 +422,7 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 		if ( '' === $condition && method_exists( $product, 'get_attributes' ) ) {
 			foreach ( $product->get_attributes() as $taxonomy => $val ) {
 				$label       = $this->attribute_label( $taxonomy, $parent ? $parent : $product );
-				$label_clean = strtolower( trim( (string) $label ) );
+				$label_clean = function_exists( 'mb_strtolower' ) ? mb_strtolower( trim( (string) $label ), 'UTF-8' ) : strtolower( trim( (string) $label ) );
 				if ( in_array( $label_clean, array( 'skick', 'condition', 'tillstånd', 'tillstand' ), true ) ) {
 					if ( $val instanceof WC_Product_Attribute ) {
 						$condition = trim( $this->attribute_option_value( $val ) );

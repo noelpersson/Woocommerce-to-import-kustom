@@ -479,10 +479,105 @@
 			});
 		}
 
-		// Snabbval för Sello-kolumner (Markera alla / Avmarkera alla)
+		// Snabbval och interaktiv förhandsgranskning för Sello-kolumner
 		var selectAllColsBtn = document.getElementById('selloSelectAllBtn');
 		var deselectAllColsBtn = document.getElementById('selloDeselectAllBtn');
 		var selloColCheckboxes = document.querySelectorAll('.sello-col-checkbox');
+
+		function updateSelloActiveColumnsUI() {
+			var activeCount = 0;
+			var totalCount = 0;
+			var checkboxes = document.querySelectorAll('.sello-col-checkbox');
+
+			checkboxes.forEach(function (cb) {
+				totalCount++;
+				var colMatch = cb.name.match(/\[sello_columns\]\[(.*?)\]/);
+				var colName = colMatch ? colMatch[1] : cb.value;
+				var isChecked = cb.checked;
+
+				if (isChecked) {
+					activeCount++;
+				}
+
+				// 1. Uppdatera raden i Kolumnöversikt: Tradera-kolumner
+				var overviewRows = document.querySelectorAll('#selloColumnsTableBody tr');
+				overviewRows.forEach(function (row) {
+					if (row.getAttribute('data-col') === colName) {
+						var badge = row.querySelector('.js-col-status-badge');
+						var badgeDot = row.querySelector('.js-col-status-badge span.rounded-full');
+						var badgeText = row.querySelector('.js-col-status-text');
+
+						if (isChecked) {
+							row.classList.remove('opacity-40', 'bg-slate-50/50');
+							if (badge) {
+								badge.className = 'js-col-status-badge font-label-sm text-[11px] bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1';
+							}
+							if (badgeDot) {
+								badgeDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-600';
+							}
+							if (badgeText) {
+								badgeText.textContent = 'Vald';
+							}
+						} else {
+							row.classList.add('opacity-40', 'bg-slate-50/50');
+							if (badge) {
+								badge.className = 'js-col-status-badge font-label-sm text-[11px] bg-slate-100 text-slate-500 border border-slate-200 font-medium px-2 py-0.5 rounded-full inline-flex items-center gap-1';
+							}
+							if (badgeDot) {
+								badgeDot.className = 'w-1.5 h-1.5 rounded-full bg-slate-400';
+							}
+							if (badgeText) {
+								badgeText.textContent = 'Ej vald';
+							}
+						}
+					}
+				});
+
+				// 2. Uppdatera celler i Förhandsgranskning av exporten
+				var previewCells = document.querySelectorAll('#selloPreviewTable [data-col]');
+				previewCells.forEach(function (cell) {
+					if (cell.getAttribute('data-col') === colName) {
+						if (isChecked) {
+							cell.classList.remove('hidden');
+						} else {
+							cell.classList.add('hidden');
+						}
+					}
+				});
+			});
+
+			// 3. Uppdatera räknare
+			var counterBadge = document.getElementById('selloActiveColsCounter');
+			if (counterBadge) {
+				counterBadge.textContent = activeCount + ' / ' + totalCount + ' kolumner aktiva';
+			}
+
+			var previewBadge = document.getElementById('selloPreviewColCount');
+			if (previewBadge) {
+				previewBadge.textContent = activeCount + ' kolumner';
+			}
+
+			var previewSub = document.getElementById('selloPreviewSubtitle');
+			if (previewSub) {
+				previewSub.textContent = 'Visar exakt hur de ' + activeCount + ' valda kolumnerna genereras för dina enkla och variabla produkter i den nedladdade filen.';
+			}
+
+			var overviewSub = document.getElementById('selloColumnsOverviewSub');
+			if (overviewSub) {
+				overviewSub.textContent = 'Följande ' + activeCount + ' kolumner genereras i ordning i både .xlsx- och .csv-filen:';
+			}
+
+			var overviewSummary = document.getElementById('selloColumnsOverviewSummary');
+			if (overviewSummary) {
+				overviewSummary.textContent = activeCount + ' av ' + totalCount + ' kolumner är aktiva och inkluderas i Sello-exporten.';
+			}
+		}
+
+		if (selloColCheckboxes.length) {
+			selloColCheckboxes.forEach(function (cb) {
+				cb.addEventListener('change', updateSelloActiveColumnsUI);
+			});
+		}
 
 		if (selectAllColsBtn) {
 			selectAllColsBtn.addEventListener('click', function (e) {
@@ -490,6 +585,7 @@
 				selloColCheckboxes.forEach(function (cb) {
 					cb.checked = true;
 				});
+				updateSelloActiveColumnsUI();
 			});
 		}
 
@@ -499,6 +595,7 @@
 				selloColCheckboxes.forEach(function (cb) {
 					cb.checked = false;
 				});
+				updateSelloActiveColumnsUI();
 			});
 		}
 
@@ -530,11 +627,10 @@
 					return res.json();
 				}).then(function () {
 					selloSaveBtn.innerHTML = '<span class="material-symbols-outlined text-[15px]">done</span><span>Sparat!</span>';
-					showToast('Inställningarna för Sello & Tradera har sparats!');
+					showToast('Inställningarna för Sello & Tradera har sparats! Laddar om sidan...');
 					setTimeout(function () {
-						selloSaveBtn.innerHTML = originalContent;
-						selloSaveBtn.disabled = false;
-					}, 1500);
+						window.location.reload();
+					}, 700);
 				}).catch(function () {
 					selloSaveBtn.disabled = false;
 					selloSaveBtn.innerHTML = originalContent;
@@ -553,6 +649,21 @@
 						customCondWrap.classList.remove('hidden');
 					} else if (radio.checked) {
 						customCondWrap.classList.add('hidden');
+					}
+				});
+			});
+		}
+
+		// Interaktivitet för Kategori-inställningar
+		var catRadios = document.querySelectorAll('.js-sello-cat-radio');
+		var customCatWrap = document.getElementById('selloCustomCategoryWrap');
+		if (catRadios.length && customCatWrap) {
+			catRadios.forEach(function (radio) {
+				radio.addEventListener('change', function () {
+					if (radio.checked && radio.value === 'fixed') {
+						customCatWrap.classList.remove('hidden');
+					} else if (radio.checked) {
+						customCatWrap.classList.add('hidden');
 					}
 				});
 			});

@@ -154,6 +154,8 @@ class WOO_Kustom_Export {
 			'sello_filter_conditions'     => array(),
 			'sello_filter_brand_mode'     => 'all',
 			'sello_filter_brands'         => array(),
+			'sello_category_mode'         => 'woocommerce',
+			'sello_custom_category'       => 'importerad',
 		);
 
 		return wp_parse_args( (array) get_option( self::OPTION_KEY, array() ), $defaults );
@@ -253,6 +255,8 @@ class WOO_Kustom_Export {
 				'Sku'                     => __( 'Artikelnummer (SKU)', 'woo-kustom-export' ),
 				'Standard name sv'        => __( 'Produktnamn (svenska)', 'woo-kustom-export' ),
 				'Standard description sv' => __( 'Beskrivning (svenska, ren text)', 'woo-kustom-export' ),
+				'Tradera category'        => __( 'Tradera-kategori (Tradera category)', 'woo-kustom-export' ),
+				'Category'                => __( 'Intern kategori (Category)', 'woo-kustom-export' ),
 				'Tradera price store'     => __( 'Tradera butikspris (fast pris)', 'woo-kustom-export' ),
 				'Purchase price'          => __( 'Inköpspris (exkl. moms)', 'woo-kustom-export' ),
 				'Quantity'                => __( 'Lagersaldo', 'woo-kustom-export' ),
@@ -261,7 +265,6 @@ class WOO_Kustom_Export {
 				'Images'                  => __( 'Produktbilder (https URL)', 'woo-kustom-export' ),
 				'Brand'                   => __( 'Varumärke', 'woo-kustom-export' ),
 				'Group sku'               => __( 'Grupp-SKU (huvudprodukt)', 'woo-kustom-export' ),
-				'Group type'              => __( 'Grupptyp (color, size, model)', 'woo-kustom-export' ),
 				'Condition'               => __( 'Produktens skick (Condition: new / used)', 'woo-kustom-export' ),
 			);
 			return isset( $sello_labels[ $column ] ) ? $sello_labels[ $column ] : $column;
@@ -534,7 +537,7 @@ class WOO_Kustom_Export {
 							</div>
 							<div class="flex items-start gap-space-sm">
 								<span class="material-symbols-outlined text-[18px] text-tertiary mt-0.5">check_circle</span>
-								<span class="font-body-sm text-body-sm text-on-surface"><?php esc_html_e( 'Automatisk variantgruppering (Group sku & Group type)', 'woo-kustom-export' ); ?></span>
+								<span class="font-body-sm text-body-sm text-on-surface"><?php esc_html_e( 'Automatisk variantgruppering (Group sku)', 'woo-kustom-export' ); ?></span>
 							</div>
 						</div>
 					</div>
@@ -726,6 +729,32 @@ class WOO_Kustom_Export {
 		$sello_tab_url       = admin_url( 'admin.php?page=woo-product-export&tab=sello' );
 		$kustom_download_url = $this->get_download_url( 'kustom' );
 		$sello_download_url  = $this->get_download_url( 'sello-xlsx' );
+
+		// Detektera PDF-guider i /docs/
+		$docs_dir            = WOO_KUSTOM_EXPORT_PLUGIN_DIR . 'docs/';
+		$kustom_pos_pdf_name = 'kustom-pos-guide.pdf';
+		$sello_pdf_name      = 'sello-guide.pdf';
+		if ( is_dir( $docs_dir ) ) {
+			$all_pdfs = glob( $docs_dir . '*.[pP][dD][fF]' );
+			if ( ! empty( $all_pdfs ) ) {
+				foreach ( $all_pdfs as $pdf_path ) {
+					$filename = basename( $pdf_path );
+					if ( 'kustom-pos-guide.pdf' === $kustom_pos_pdf_name && false !== stripos( $filename, 'kustom' ) ) {
+						$kustom_pos_pdf_name = $filename;
+					}
+					if ( 'sello-guide.pdf' === $sello_pdf_name && false !== stripos( $filename, 'sello' ) ) {
+						$sello_pdf_name = $filename;
+					}
+				}
+			}
+		}
+		$kustom_pos_pdf_url  = WOO_KUSTOM_EXPORT_PLUGIN_URL . 'docs/' . rawurlencode( $kustom_pos_pdf_name );
+		$kustom_pos_pdf_file = $docs_dir . $kustom_pos_pdf_name;
+		$has_kustom_pos_pdf  = file_exists( $kustom_pos_pdf_file );
+
+		$sello_pdf_url       = WOO_KUSTOM_EXPORT_PLUGIN_URL . 'docs/' . rawurlencode( $sello_pdf_name );
+		$sello_pdf_file      = $docs_dir . $sello_pdf_name;
+		$has_sello_pdf       = file_exists( $sello_pdf_file );
 		?>
 		<div class="flex flex-col w-full space-y-6">
 
@@ -746,9 +775,25 @@ class WOO_Kustom_Export {
 					<a href="#kustom-pos-guide" class="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition-colors no-underline">
 						↓ Kustom POS
 					</a>
+					<?php if ( $has_kustom_pos_pdf ) : ?>
+					<a href="<?php echo esc_url( $kustom_pos_pdf_url ); ?>" target="_blank" rel="noopener noreferrer" class="px-3 py-2 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200 transition-colors no-underline inline-flex items-center gap-1.5" title="<?php esc_attr_e( 'Öppna Kustom POS PDF-guide', 'woo-kustom-export' ); ?>">
+						<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+						</svg>
+						<span><?php esc_html_e( 'PDF: Kustom POS', 'woo-kustom-export' ); ?></span>
+					</a>
+					<?php endif; ?>
 					<a href="#sello-guide" class="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition-colors no-underline">
 						↓ Sello Export
 					</a>
+					<?php if ( $has_sello_pdf ) : ?>
+					<a href="<?php echo esc_url( $sello_pdf_url ); ?>" target="_blank" rel="noopener noreferrer" class="px-3 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors no-underline inline-flex items-center gap-1.5" title="<?php esc_attr_e( 'Öppna Sello PDF-guide', 'woo-kustom-export' ); ?>">
+						<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+						</svg>
+						<span><?php esc_html_e( 'PDF: Sello', 'woo-kustom-export' ); ?></span>
+					</a>
+					<?php endif; ?>
 					<a href="#faq-section" class="px-3 py-2 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg border border-slate-200 transition-colors no-underline">
 						↓ <?php esc_html_e( 'Vanliga frågor', 'woo-kustom-export' ); ?>
 					</a>
@@ -826,6 +871,14 @@ class WOO_Kustom_Export {
 						<h3 class="text-lg font-bold text-slate-900 m-0"><?php esc_html_e( 'Kustom POS Importguide', 'woo-kustom-export' ); ?></h3>
 					</div>
 					<div class="flex items-center gap-3">
+						<?php if ( $has_kustom_pos_pdf ) : ?>
+						<a href="<?php echo esc_url( $kustom_pos_pdf_url ); ?>" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-lg border border-rose-200 transition-colors no-underline inline-flex items-center gap-1.5" title="<?php esc_attr_e( 'Öppna Kustom POS PDF-guide', 'woo-kustom-export' ); ?>">
+							<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+							</svg>
+							<span><?php esc_html_e( 'Öppna PDF-guide', 'woo-kustom-export' ); ?></span>
+						</a>
+						<?php endif; ?>
 						<a href="<?php echo esc_url( $kustom_tab_url ); ?>" class="text-xs font-semibold text-blue-700 hover:underline no-underline">
 							<?php esc_html_e( 'Gå till Kustom POS-fliken →', 'woo-kustom-export' ); ?>
 						</a>
@@ -900,7 +953,7 @@ class WOO_Kustom_Export {
 									<td class="p-3 font-mono font-medium text-blue-900">product_name</td>
 									<td class="p-3"><span class="px-2 py-0.5 bg-blue-50 text-blue-700 font-bold rounded text-[10px]"><?php esc_html_e( 'OBLIGATORISK', 'woo-kustom-export' ); ?></span></td>
 									<td class="p-3 font-mono text-slate-500">post_title</td>
-									<td class="p-3"><?php esc_html_e( 'Artikelnamn inklusive variantbeskrivning (t.ex. "Linnéskjorta Blå - M").', 'woo-kustom-export' ); ?></td>
+									<td class="p-3"><?php esc_html_e( 'Produktens titel (föräldraproduktens titel vid variationer för att hålla artikelnamnet rent). Varianters egenskaper som storlek och färg hanteras i separata attributkolumner.', 'woo-kustom-export' ); ?></td>
 								</tr>
 								<tr>
 									<td class="p-3 font-mono font-medium text-blue-900">price_including_vat</td>
@@ -927,10 +980,10 @@ class WOO_Kustom_Export {
 									<td class="p-3"><?php esc_html_e( 'Unikt artikelnummer. Om tomt skapas automatiskt fallback [HUVUD-SKU]-[VARIANT-ID] eller post-ID.', 'woo-kustom-export' ); ?></td>
 								</tr>
 								<tr>
-									<td class="p-3 font-mono font-medium text-blue-900">attribute_*</td>
+									<td class="p-3 font-mono font-medium text-blue-900">[attributnamn]</td>
 									<td class="p-3"><span class="px-2 py-0.5 bg-indigo-50 text-indigo-700 font-bold rounded text-[10px]"><?php esc_html_e( 'ATTRIBUT', 'woo-kustom-export' ); ?></span></td>
 									<td class="p-3 font-mono text-slate-500">pa_storlek, pa_farg</td>
-									<td class="p-3"><?php esc_html_e( 'Egna butiksattribut skapas som individuella kolumner för exakt kassasökning.', 'woo-kustom-export' ); ?></td>
+									<td class="p-3"><?php esc_html_e( 'Valda produktattribut exporteras som egna kolumner med rent attributnamn utan prefix (t.ex. "storlek", "färg") för direkt filtrering och sökning i kassan.', 'woo-kustom-export' ); ?></td>
 								</tr>
 							</tbody>
 						</table>
@@ -946,6 +999,14 @@ class WOO_Kustom_Export {
 						<h3 class="text-lg font-bold text-slate-900 m-0"><?php esc_html_e( 'Sello Marknadsplatsintegration & Formatregler', 'woo-kustom-export' ); ?></h3>
 					</div>
 					<div class="flex items-center gap-3">
+						<?php if ( $has_sello_pdf ) : ?>
+						<a href="<?php echo esc_url( $sello_pdf_url ); ?>" target="_blank" rel="noopener noreferrer" class="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200 transition-colors no-underline inline-flex items-center gap-1.5" title="<?php esc_attr_e( 'Öppna Sello PDF-guide', 'woo-kustom-export' ); ?>">
+							<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+							</svg>
+							<span><?php esc_html_e( 'Öppna PDF-guide', 'woo-kustom-export' ); ?></span>
+						</a>
+						<?php endif; ?>
 						<a href="<?php echo esc_url( $sello_tab_url ); ?>" class="text-xs font-semibold text-emerald-700 hover:underline no-underline">
 							<?php esc_html_e( 'Gå till Sello-fliken →', 'woo-kustom-export' ); ?>
 						</a>
@@ -965,12 +1026,24 @@ class WOO_Kustom_Export {
 								<span><?php esc_html_e( 'För butiksobjekt på Tradera exporteras priset i "Tradera price store" som heltal inklusive moms (slutkundspriset i SEK). Kolumnerna Price och Calculate utelämnas för att förhindra oönskade automatiska prisberäkningar i Sello.', 'woo-kustom-export' ); ?></span>
 							</li>
 							<li class="flex items-start gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-								<span class="font-bold text-slate-900 shrink-0"><?php esc_html_e( '2. Variantgruppering:', 'woo-kustom-export' ); ?></span>
-								<span><?php esc_html_e( 'Varianter binds automatiskt till föräldraartikeln med dess artikelnummer i kolumnen Group sku samt variationsdimensionen i Group type (color, size eller model).', 'woo-kustom-export' ); ?></span>
+								<span class="font-bold text-slate-900 shrink-0"><?php esc_html_e( '2. Tradera-kategori & egenskaper:', 'woo-kustom-export' ); ?></span>
+								<span><?php esc_html_e( 'Mappar automatiskt WooCommerce-kategorin till Traderas officiella numeriska kategori-ID (t.ex. 341181) eller fast kategori. Detta krävs för att Tradera ska visa och aktivera produktegenskaper ("Details") i Sello.', 'woo-kustom-export' ); ?></span>
 							</li>
 							<li class="flex items-start gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-								<span class="font-bold text-slate-900 shrink-0"><?php esc_html_e( '3. Viktenheter till gram:', 'woo-kustom-export' ); ?></span>
-								<span><?php esc_html_e( 'Om WooCommerce använder kg konverteras vikten till gram för att uppfylla Sellos fraktschema för Tradera och CDON.', 'woo-kustom-export' ); ?></span>
+								<span class="font-bold text-slate-900 shrink-0"><?php esc_html_e( '3. Skick & Sello Condition:', 'woo-kustom-export' ); ?></span>
+								<span><?php esc_html_e( 'Sätter automatiskt Sellos officiella skick Condition till "new" (oanvänt) eller "used" (vintage/begagnat), och inkluderar den specifika skickgraderingen (t.ex. "Gott skick") i produktbeskrivningen.', 'woo-kustom-export' ); ?></span>
+							</li>
+							<li class="flex items-start gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+								<span class="font-bold text-slate-900 shrink-0"><?php esc_html_e( '4. Tradera-länkskydd:', 'woo-kustom-export' ); ?></span>
+								<span><?php esc_html_e( 'Rensar automatiskt bort externa hyperlänkar, webbadresser och butikshänvisningar ur beskrivningen för att undvika avstängning eller regelbrott hos Tradera.', 'woo-kustom-export' ); ?></span>
+							</li>
+							<li class="flex items-start gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+								<span class="font-bold text-slate-900 shrink-0"><?php esc_html_e( '5. Variantgruppering:', 'woo-kustom-export' ); ?></span>
+								<span><?php esc_html_e( 'Varianter binds automatiskt till föräldraartikeln med dess artikelnummer i kolumnen Group sku. Huvudprodukten har inget separat pris i filen om den inte säljs separat.', 'woo-kustom-export' ); ?></span>
+							</li>
+							<li class="flex items-start gap-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
+								<span class="font-bold text-slate-900 shrink-0"><?php esc_html_e( '6. Viktenheter till gram:', 'woo-kustom-export' ); ?></span>
+								<span><?php esc_html_e( 'Om butiken använder kg, lbs eller oz omvandlas vikten automatiskt till gram i heltal för att uppfylla Sellos fraktschema för Tradera och CDON.', 'woo-kustom-export' ); ?></span>
 							</li>
 						</ul>
 					</div>
@@ -992,9 +1065,114 @@ class WOO_Kustom_Export {
 								<strong><?php esc_html_e( 'Steg 3:', 'woo-kustom-export' ); ?></strong> <?php esc_html_e( 'Välj "Skapa nya produkter från min fil" för nya artiklar eller "Uppdatera produkter med min fil" för att uppdatera priser och lager.', 'woo-kustom-export' ); ?>
 							</p>
 							<div class="pt-2 border-t border-emerald-200 text-[11px] text-emerald-800">
-								<?php esc_html_e( 'Tips: Exportfilerna är färdigformaterade enligt Sellos officiella Excel-importspecifikation (v4-kompatibel).', 'woo-kustom-export' ); ?>
+								<?php esc_html_e( 'Tips: Exportfilerna är färdigformaterade enligt Sellos officiella Excel-importspecifikation (v4-kompatibel). Filnamnet genereras med datum och klockslag (t.ex. sello-tradera-products-YYYY-MM-DD-HHmm.xlsx).', 'woo-kustom-export' ); ?>
 							</div>
 						</div>
+					</div>
+				</div>
+
+				<!-- Kolumnmappningstabell Sello -->
+				<div class="border border-slate-200 rounded-lg overflow-hidden">
+					<div class="bg-slate-100 px-4 py-2 text-xs font-bold text-slate-700 border-b border-slate-200">
+						<?php esc_html_e( 'Sello Tradera: Standardkolumner och formatregler', 'woo-kustom-export' ); ?>
+					</div>
+					<div class="overflow-x-auto">
+						<table class="w-full text-left text-xs border-collapse">
+							<thead class="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
+								<tr>
+									<th class="p-3"><?php esc_html_e( 'Kolumn i fil', 'woo-kustom-export' ); ?></th>
+									<th class="p-3"><?php esc_html_e( 'Kravstatus', 'woo-kustom-export' ); ?></th>
+									<th class="p-3"><?php esc_html_e( 'WooCommerce-fält', 'woo-kustom-export' ); ?></th>
+									<th class="p-3"><?php esc_html_e( 'Beskrivning & Formatering', 'woo-kustom-export' ); ?></th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-slate-200 text-slate-700">
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Sku</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-blue-50 text-blue-700 font-bold rounded text-[10px]"><?php esc_html_e( 'OBLIGATORISK (BAS)', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">_sku</td>
+									<td class="p-3"><?php esc_html_e( 'Unikt artikelnummer för varje artikel och variant. Vid saknat SKU genereras automatiskt [HUVUD-SKU]-[VARIANT-ID].', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Standard name sv</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded text-[10px]"><?php esc_html_e( 'STANDARD', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">post_title</td>
+									<td class="p-3"><?php esc_html_e( 'Produktens fullständiga titel på svenska.', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Standard description sv</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded text-[10px]"><?php esc_html_e( 'STANDARD', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">post_content</td>
+									<td class="p-3"><?php esc_html_e( 'Ren textbeskrivning utan HTML-taggar och utan otillåtna externa butikslänkar. Innehåller även skickangivelse.', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Tradera category</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-blue-50 text-blue-700 font-bold rounded text-[10px]"><?php esc_html_e( 'OBLIGATORISK (BAS)', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">product_cat / Tradera ID</td>
+									<td class="p-3"><?php esc_html_e( 'Traderas numeriska kategori-ID (t.ex. 341181). Krävs för att aktivera Tradera-egenskaper under Details.', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Tradera price store</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded text-[10px]"><?php esc_html_e( 'STANDARD', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">_price (inkl moms)</td>
+									<td class="p-3"><?php esc_html_e( 'Fast butikspris i heltal utan valuta (t.ex. 495). Price och Calculate utelämnas för att förhindra omräkningar.', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Purchase price</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded text-[10px]"><?php esc_html_e( 'STANDARD', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">_purchase_price / meta</td>
+									<td class="p-3"><?php esc_html_e( 'Inköpspris/kalkylpris om angivet i WooCommerce.', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Quantity</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded text-[10px]"><?php esc_html_e( 'STANDARD', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">_stock</td>
+									<td class="p-3"><?php esc_html_e( 'Aktuellt lagersaldo som heltal. Tomt om lagerhantering är inaktiv.', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Tax</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded text-[10px]"><?php esc_html_e( 'STANDARD', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">tax_rate</td>
+									<td class="p-3"><?php esc_html_e( 'Momssats i procent som heltal (normalt 25).', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Weight</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded text-[10px]"><?php esc_html_e( 'STANDARD', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">_weight</td>
+									<td class="p-3"><?php esc_html_e( 'Produktens vikt automatiskt omvandlad till gram i heltal.', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Images</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded text-[10px]"><?php esc_html_e( 'STANDARD', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">Bild- & galleri-URL:er</td>
+									<td class="p-3"><?php esc_html_e( 'Fullständiga https:// bild-URL:er separerade med komma.', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Brand</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded text-[10px]"><?php esc_html_e( 'STANDARD', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">pa_brand / meta</td>
+									<td class="p-3"><?php esc_html_e( 'Varumärke/tillverkare hämtat från butikens taxonomier eller produktattribut.', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Group sku</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded text-[10px]"><?php esc_html_e( 'STANDARD', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">Föräldra-_sku</td>
+									<td class="p-3"><?php esc_html_e( 'Huvudproduktens SKU. Binder samman varianter till samma produktkort i Sello.', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Condition</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-slate-100 text-slate-600 font-bold rounded text-[10px]"><?php esc_html_e( 'STANDARD', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">Skick / meta</td>
+									<td class="p-3"><?php esc_html_e( 'Sellos officiella standardskick: "new" (nya artiklar) eller "used" (vintage/begagnat).', 'woo-kustom-export' ); ?></td>
+								</tr>
+								<tr>
+									<td class="p-3 font-mono font-medium text-emerald-900">Category</td>
+									<td class="p-3"><span class="px-2 py-0.5 bg-amber-50 text-amber-700 font-bold rounded text-[10px]"><?php esc_html_e( 'TILLVAL', 'woo-kustom-export' ); ?></span></td>
+									<td class="p-3 font-mono text-slate-500">product_cat</td>
+									<td class="p-3"><?php esc_html_e( 'Valfri kolumn för butikens interna WooCommerce-kategoriträd för sortering inom Sello.', 'woo-kustom-export' ); ?></td>
+								</tr>
+							</tbody>
+						</table>
 					</div>
 				</div>
 			</section>
@@ -1458,6 +1636,10 @@ class WOO_Kustom_Export {
 		if ( ! isset( $saved_sello_cols['Condition'] ) && ( ! empty( $saved_sello_cols['Property Skick'] ) || ! empty( $saved_sello_cols['Property Är begagnad'] ) ) ) {
 			$saved_sello_cols['Condition'] = 1;
 		}
+		// Bakåtkompatibilitet: om användaren tidigare sparat inställningar innan Tradera category fanns, aktivera den som standard
+		if ( ! array_key_exists( 'Tradera category', $saved_sello_cols ) ) {
+			$saved_sello_cols['Tradera category'] = 1;
+		}
 		$has_saved_cols    = ! empty( $settings['sello_columns_configured'] ) || ! empty( $saved_sello_cols );
 
 		// Urvalsfilter för Sello & Tradera
@@ -1466,6 +1648,8 @@ class WOO_Kustom_Export {
 		$brand_mode       = ! empty( $settings['sello_filter_brand_mode'] ) ? $settings['sello_filter_brand_mode'] : 'all';
 		$selected_brands  = isset( $settings['sello_filter_brands'] ) && is_array( $settings['sello_filter_brands'] ) ? $settings['sello_filter_brands'] : array();
 		$available_brands = WOO_Sello_CSV_Generator::get_available_store_brands();
+		$category_mode    = ! empty( $settings['sello_category_mode'] ) ? $settings['sello_category_mode'] : 'woocommerce';
+		$custom_category  = ! empty( $settings['sello_custom_category'] ) ? $settings['sello_custom_category'] : 'importerad';
 
 		foreach ( $selected_brands as $sb ) {
 			if ( ! isset( $available_brands[ $sb ] ) ) {
@@ -1856,6 +2040,73 @@ class WOO_Kustom_Export {
 					</div>
 				</div>
 
+				<!-- Kategori-inställningar för Sello & Tradera -->
+				<div class="bg-surface-container-low/70 rounded-xl p-space-lg mb-space-lg border border-slate-200">
+					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+						<div class="flex items-center gap-2">
+							<span class="material-symbols-outlined text-[20px] text-primary">category</span>
+							<h3 class="font-title-md text-title-md text-on-surface m-0 font-bold text-slate-900">
+								<?php esc_html_e( 'Kategori-inställningar för Sello (Tradera)', 'woo-kustom-export' ); ?>
+							</h3>
+						</div>
+						<span class="inline-flex items-center gap-1 text-[11px] bg-blue-100 text-blue-800 font-semibold px-2 py-0.5 rounded-full self-start sm:self-auto">
+							<span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+							<?php esc_html_e( 'Krävs för att Tradera-egenskaper ska aktiveras i Sello', 'woo-kustom-export' ); ?>
+						</span>
+					</div>
+					<p class="text-xs text-slate-600 mb-space-md max-w-3xl leading-relaxed">
+						<?php esc_html_e( 'Sello kräver att importerade produkter har en kategori tilldelad. Utan kategori visas inte Traderas egenskaper ("Details") i Sello och kan inte sättas via importen. Välj om produkterna ska ärva sin kategori från WooCommerce eller få en gemensam fast kategori (t.ex. "importerad"):', 'woo-kustom-export' ); ?>
+					</p>
+
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-space-md max-w-3xl pt-space-xs">
+						<div class="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs">
+							<label class="flex items-start gap-2.5 cursor-pointer text-xs text-slate-800">
+								<input type="radio" name="woo_kustom_export[sello_category_mode]" value="woocommerce" class="mt-0.5 js-sello-cat-radio" <?php checked( 'woocommerce' === $category_mode ); ?>>
+								<div>
+									<span class="font-semibold text-slate-900"><?php esc_html_e( 'Aktuell produktkategori från WooCommerce (Standard)', 'woo-kustom-export' ); ?></span>
+									<p class="text-[11px] text-slate-500 m-0 mt-0.5"><?php esc_html_e( 'Hämtar automatiskt produktens kategori från WooCommerce och konverterar den till Traderas officiella kategori-ID (t.ex. prismor/lampdelar till 341181) så att marknadsplatsegenskaper aktiveras i Sello.', 'woo-kustom-export' ); ?></p>
+								</div>
+							</label>
+						</div>
+
+						<div class="bg-white p-3.5 rounded-lg border border-slate-200 shadow-2xs flex flex-col justify-between">
+							<label class="flex items-start gap-2.5 cursor-pointer text-xs text-slate-800">
+								<input type="radio" name="woo_kustom_export[sello_category_mode]" value="fixed" class="mt-0.5 js-sello-cat-radio" <?php checked( 'fixed' === $category_mode ); ?>>
+								<div>
+									<span class="font-semibold text-slate-900"><?php esc_html_e( 'Samma kategori för alla produkter', 'woo-kustom-export' ); ?></span>
+									<p class="text-[11px] text-slate-500 m-0 mt-0.5"><?php esc_html_e( 'Använd en och samma fasta Tradera-kategori (t.ex. kategori-ID 341181) för samtliga exporterade produkter.', 'woo-kustom-export' ); ?></p>
+								</div>
+							</label>
+
+							<div id="selloCustomCategoryWrap" class="<?php echo 'fixed' === $category_mode ? '' : 'hidden'; ?> mt-3 pt-2.5 border-t border-slate-200">
+								<label class="block font-semibold text-xs text-slate-900 mb-1" for="sello_custom_category">
+									<?php esc_html_e( 'Tradera Kategori-ID eller namn:', 'woo-kustom-export' ); ?>
+								</label>
+								<input type="text" name="woo_kustom_export[sello_custom_category]" id="sello_custom_category" value="<?php echo esc_attr( $custom_category ); ?>" placeholder="341181" list="selloTraderaCatSuggestions" class="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 font-medium focus:bg-white focus:ring-1 focus:ring-primary focus:border-primary">
+								<datalist id="selloTraderaCatSuggestions">
+									<option value="341181">341181 – Prisms & lamp parts (Antik belysning & prismor)</option>
+									<option value="344611">344611 – Crystal Chandeliers (Kristallkronor)</option>
+									<option value="344664">344664 – Ceiling Lights (Taklampor)</option>
+									<option value="1000001">1000001 – Table lamps (Bordslampor)</option>
+									<option value="344593">344593 – Floor Lamps (Golvlampor)</option>
+									<option value="344592">344592 – Wall Lamps (Vägglampor)</option>
+									<option value="200701">200701 – Utility Glass (Bruksglas)</option>
+									<option value="200706">200706 – Art glass signed (Signerat konstglas)</option>
+									<option value="200705">200705 – Art glass unsigned (Osignerat konstglas)</option>
+									<option value="200707">200707 – Bowls (Skålar)</option>
+									<option value="200708">200708 – Vases (Vaser)</option>
+									<option value="341195">341195 – Wine Glasses (Vinglas)</option>
+									<option value="341196">341196 – Glasses (Dricksglas)</option>
+									<option value="341194">341194 – Bottles & decanters (Flaskor & karaffer)</option>
+									<option value="301937">301937 – Orrefors</option>
+									<option value="301938">301938 – Kosta Boda</option>
+								</datalist>
+								<span class="text-[11px] text-slate-500 mt-1 block"><?php esc_html_e( 'Ange Traderas numeriska kategori-ID (t.ex. 341181) för att aktivera Tradera-egenskaper under Details.', 'woo-kustom-export' ); ?></span>
+							</div>
+						</div>
+					</div>
+				</div>
+
 				<!-- Tradera Skick & Egenskapsmappning -->
 				<div class="bg-surface-container-low/70 rounded-xl p-space-lg mb-space-lg border border-slate-200">
 					<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
@@ -1982,24 +2233,28 @@ class WOO_Kustom_Export {
 								<?php esc_html_e( 'Förhandsgranskning av exporten (första raderna)', 'woo-kustom-export' ); ?>
 							</h2>
 						</div>
-						<p class="font-body-md text-body-md text-on-surface-variant mt-1 mb-0">
+						<p class="font-body-md text-body-md text-on-surface-variant mt-1 mb-0" id="selloPreviewSubtitle">
 							<?php printf( esc_html__( 'Visar exakt hur de %d valda kolumnerna genereras för dina enkla och variabla produkter i den nedladdade filen.', 'woo-kustom-export' ), count( $active_columns ) ); ?>
 						</p>
 					</div>
 					<div class="flex items-center gap-2">
-						<span class="font-label-sm text-label-sm bg-surface-container text-on-surface px-2.5 py-1 rounded font-mono font-semibold">
-							<?php echo count( $preview_rows ); ?> <?php esc_html_e( 'exempelrader', 'woo-kustom-export' ); ?> • <?php echo count( $active_columns ); ?> <?php esc_html_e( 'kolumner', 'woo-kustom-export' ); ?>
+						<span class="font-label-sm text-label-sm bg-surface-container text-on-surface px-2.5 py-1 rounded font-mono font-semibold" id="selloPreviewBadge">
+							<?php echo count( $preview_rows ); ?> <?php esc_html_e( 'exempelrader', 'woo-kustom-export' ); ?> • <span id="selloPreviewColCount"><?php echo count( $active_columns ); ?> <?php esc_html_e( 'kolumner', 'woo-kustom-export' ); ?></span>
 						</span>
 					</div>
 				</div>
 
-				<?php if ( ! empty( $preview_rows ) ) : ?>
+				<?php if ( ! empty( $preview_rows ) ) :
+					$all_supported_cols = WOO_Sello_CSV_Generator::get_all_columns_list();
+				?>
 				<div class="overflow-x-auto -mx-space-xl px-space-xl">
-					<table class="w-full text-left border-collapse border-0 text-xs font-sans">
+					<table class="w-full text-left border-collapse border-0 text-xs font-sans" id="selloPreviewTable">
 						<thead>
 							<tr class="bg-surface-container-low text-on-surface-variant border-b border-surface-container-high">
-								<?php foreach ( $active_columns as $col_name ) : ?>
-								<th class="py-2.5 px-3 font-semibold uppercase tracking-wider whitespace-nowrap <?php echo in_array( $col_name, array( 'Tradera price store', 'Purchase price', 'Weight' ), true ) ? 'text-right' : ( in_array( $col_name, array( 'Quantity', 'Tax' ), true ) ? 'text-center' : '' ); ?>">
+								<?php foreach ( $all_supported_cols as $col_name ) :
+									$is_col_active = in_array( $col_name, $active_columns, true );
+								?>
+								<th data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $is_col_active ? '' : 'hidden'; ?> py-2.5 px-3 font-semibold uppercase tracking-wider whitespace-nowrap <?php echo in_array( $col_name, array( 'Tradera price store', 'Purchase price', 'Weight' ), true ) ? 'text-right' : ( in_array( $col_name, array( 'Quantity', 'Tax' ), true ) ? 'text-center' : '' ); ?>">
 									<?php echo esc_html( $col_name ); ?>
 								</th>
 								<?php endforeach; ?>
@@ -2008,23 +2263,41 @@ class WOO_Kustom_Export {
 						<tbody class="divide-y divide-slate-100">
 							<?php foreach ( $preview_rows as $idx => $r ) : ?>
 							<tr class="<?php echo 0 === $idx % 2 ? 'bg-white' : 'bg-slate-50/50'; ?> hover:bg-blue-50/40 transition-colors">
-								<?php foreach ( $active_columns as $col_name ) :
+								<?php foreach ( $all_supported_cols as $col_name ) :
+									$is_col_active = in_array( $col_name, $active_columns, true );
 									$val = isset( $r[ $col_name ] ) ? (string) $r[ $col_name ] : '';
+									$col_class = $is_col_active ? '' : 'hidden';
 								?>
 									<?php if ( 'Sku' === $col_name ) : ?>
-									<td class="py-2.5 px-3 font-mono font-semibold text-slate-900 whitespace-nowrap">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 font-mono font-semibold text-slate-900 whitespace-nowrap">
 										<span class="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200"><?php echo esc_html( $val ); ?></span>
 									</td>
 									<?php elseif ( 'Standard name sv' === $col_name ) : ?>
-									<td class="py-2.5 px-3 font-medium text-slate-900 whitespace-nowrap max-w-xs truncate" title="<?php echo esc_attr( $val ); ?>">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 font-medium text-slate-900 whitespace-nowrap max-w-xs truncate" title="<?php echo esc_attr( $val ); ?>">
 										<?php echo esc_html( $val ); ?>
 									</td>
 									<?php elseif ( 'Standard description sv' === $col_name ) : ?>
-									<td class="py-2.5 px-3 text-slate-600 max-w-xs truncate" title="<?php echo esc_attr( $val ); ?>">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 text-slate-600 max-w-xs truncate" title="<?php echo esc_attr( $val ); ?>">
 										<?php echo esc_html( mb_substr( $val, 0, 50 ) . ( mb_strlen( $val ) > 50 ? '...' : '' ) ); ?>
 									</td>
+									<?php elseif ( 'Tradera category' === $col_name ) : ?>
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 text-slate-800 whitespace-nowrap">
+										<?php if ( '' !== $val ) : ?>
+											<span class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded font-medium text-xs font-mono"><?php echo esc_html( $val ); ?></span>
+										<?php else : ?>
+											<span class="text-slate-400">—</span>
+										<?php endif; ?>
+									</td>
+									<?php elseif ( 'Category' === $col_name ) : ?>
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 text-slate-800 whitespace-nowrap">
+										<?php if ( '' !== $val ) : ?>
+											<span class="bg-sky-50 text-sky-700 border border-sky-200 px-2 py-0.5 rounded font-medium text-xs"><?php echo esc_html( $val ); ?></span>
+										<?php else : ?>
+											<span class="text-slate-400">—</span>
+										<?php endif; ?>
+									</td>
 									<?php elseif ( 'Tradera price store' === $col_name ) : ?>
-									<td class="py-2.5 px-3 font-mono font-bold text-right whitespace-nowrap <?php echo '' !== $val ? 'text-emerald-700' : 'text-slate-400'; ?>">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 font-mono font-bold text-right whitespace-nowrap <?php echo '' !== $val ? 'text-emerald-700' : 'text-slate-400'; ?>">
 										<?php if ( '' !== $val ) : ?>
 											<span class="bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded"><?php echo esc_html( $val ); ?> kr</span>
 										<?php else : ?>
@@ -2032,27 +2305,31 @@ class WOO_Kustom_Export {
 										<?php endif; ?>
 									</td>
 									<?php elseif ( 'Purchase price' === $col_name ) : ?>
-									<td class="py-2.5 px-3 font-mono text-right text-slate-600 whitespace-nowrap">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 font-mono text-right text-slate-600 whitespace-nowrap">
 										<?php echo '' !== $val ? esc_html( $val ) : '—'; ?>
 									</td>
 									<?php elseif ( 'Quantity' === $col_name ) : ?>
-									<td class="py-2.5 px-3 font-mono text-center text-slate-800 whitespace-nowrap">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 font-mono text-center text-slate-800 whitespace-nowrap">
 										<?php echo '' !== $val ? esc_html( $val ) : '—'; ?>
 									</td>
 									<?php elseif ( 'Tax' === $col_name ) : ?>
-									<td class="py-2.5 px-3 font-mono text-center text-slate-800 whitespace-nowrap">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 font-mono text-center text-slate-800 whitespace-nowrap">
 										<?php echo '' !== $val ? esc_html( $val ) . '%' : '—'; ?>
 									</td>
 									<?php elseif ( 'Weight' === $col_name ) : ?>
-									<td class="py-2.5 px-3 font-mono text-right text-slate-700 whitespace-nowrap">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 font-mono text-right text-slate-700 whitespace-nowrap">
 										<?php echo '' !== $val ? esc_html( $val ) . ' g' : '—'; ?>
 									</td>
 									<?php elseif ( 'Images' === $col_name ) : ?>
-									<td class="py-2.5 px-3 text-slate-500 font-mono text-[11px] max-w-xs truncate" title="<?php echo esc_attr( $val ); ?>">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 text-slate-500 font-mono text-[11px] max-w-xs truncate" title="<?php echo esc_attr( $val ); ?>">
 										<?php echo '' !== $val ? esc_html( mb_substr( $val, 0, 35 ) . '...' ) : '—'; ?>
 									</td>
+									<?php elseif ( 'Brand' === $col_name ) : ?>
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 text-slate-700 whitespace-nowrap">
+										<?php echo '' !== $val ? esc_html( $val ) : '—'; ?>
+									</td>
 									<?php elseif ( 'Group sku' === $col_name ) : ?>
-									<td class="py-2.5 px-3 font-mono text-slate-700 whitespace-nowrap">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 font-mono text-slate-700 whitespace-nowrap">
 										<?php if ( '' !== $val ) : ?>
 											<span class="bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded font-semibold"><?php echo esc_html( $val ); ?></span>
 										<?php else : ?>
@@ -2060,15 +2337,15 @@ class WOO_Kustom_Export {
 										<?php endif; ?>
 									</td>
 									<?php elseif ( 'Group type' === $col_name ) : ?>
-									<td class="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 font-mono text-slate-700 whitespace-nowrap">
 										<?php if ( '' !== $val ) : ?>
-											<span class="bg-blue-50 text-blue-700 border border-blue-200 px-1.5 py-0.5 rounded font-medium"><?php echo esc_html( $val ); ?></span>
+											<span class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5 rounded font-medium text-xs"><?php echo esc_html( $val ); ?></span>
 										<?php else : ?>
 											<span class="text-slate-400">—</span>
 										<?php endif; ?>
 									</td>
 									<?php elseif ( 'Condition' === $col_name ) : ?>
-									<td class="py-2.5 px-3 text-slate-800 whitespace-nowrap font-mono text-center">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 text-slate-800 whitespace-nowrap font-mono text-center">
 										<?php if ( 'new' === $val ) : ?>
 											<span class="bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded font-semibold text-[11px]"><?php echo esc_html( $val ); ?></span>
 										<?php elseif ( 'used' === $val ) : ?>
@@ -2078,7 +2355,7 @@ class WOO_Kustom_Export {
 										<?php endif; ?>
 									</td>
 									<?php else : ?>
-									<td class="py-2.5 px-3 text-slate-700 whitespace-nowrap">
+									<td data-col="<?php echo esc_attr( $col_name ); ?>" class="<?php echo $col_class; ?> py-2.5 px-3 text-slate-700 whitespace-nowrap">
 										<?php echo esc_html( $val ); ?>
 									</td>
 									<?php endif; ?>
@@ -2125,7 +2402,7 @@ class WOO_Kustom_Export {
 										<span class="material-symbols-outlined text-[16px] text-tertiary">file_download</span>
 									</div>
 									<p class="font-body-md text-body-md text-on-surface-variant mt-1 mb-0 leading-normal">
-										<?php printf( esc_html__( 'Klicka på knappen ovan för att ladda ner filen (%s). Den innehåller samtliga enkla produkter och varianter strukturerade rad för rad.', 'woo-kustom-export' ), '<span class="font-code-sm text-code-sm bg-surface-container-highest px-1 py-0.5 rounded text-on-surface">sello-tradera-products-' . esc_html( $today_date ) . '.xlsx</span>' ); ?>
+										<?php printf( esc_html__( 'Klicka på knappen ovan för att ladda ner filen (%s). Den innehåller samtliga enkla produkter och varianter strukturerade rad för rad.', 'woo-kustom-export' ), '<span class="font-code-sm text-code-sm bg-surface-container-highest px-1 py-0.5 rounded text-on-surface">sello-tradera-products-' . esc_html( $today_date ) . '-TTmm.xlsx</span>' ); ?>
 									</p>
 								</div>
 							</div>
@@ -2249,11 +2526,11 @@ class WOO_Kustom_Export {
 										<?php esc_html_e( 'Variantgruppering', 'woo-kustom-export' ); ?>
 									</span>
 									<span class="px-2 py-0.5 rounded font-label-sm text-label-sm font-semibold bg-secondary-fixed text-on-secondary-fixed">
-										<?php esc_html_e( 'Group sku/type', 'woo-kustom-export' ); ?>
+										<?php esc_html_e( 'Group sku', 'woo-kustom-export' ); ?>
 									</span>
 								</div>
 								<p class="font-body-sm text-body-sm text-on-surface-variant m-0 leading-relaxed">
-									<?php printf( esc_html__( 'Alla variationer från samma huvudprodukt delar samma %s och märks med %s (color, size, model). Huvudprodukten har inget separat pris.', 'woo-kustom-export' ), '<code>Group sku</code>', '<code>Group type</code>' ); ?>
+									<?php printf( esc_html__( 'Alla variationer från samma huvudprodukt delar samma %s. Huvudprodukten har inget separat pris.', 'woo-kustom-export' ), '<code>Group sku</code>' ); ?>
 								</p>
 							</div>
 							<!-- Ren textbeskrivning -->
@@ -2276,7 +2553,7 @@ class WOO_Kustom_Export {
 				</div>
 			</div>
 
-			<!-- Full-Width Bottom Panel: Kolumnöversikt för Sello (12 Tradera-kolumner) -->
+			<!-- Full-Width Bottom Panel: Kolumnöversikt för Sello (Tradera-kolumner) -->
 			<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-xl flex flex-col border border-surface-container-high/60">
 				<div class="flex flex-col md:flex-row md:items-end justify-between gap-space-md pb-space-lg mb-space-md bg-surface-container-lowest border-b border-surface-container">
 					<div>
@@ -2286,12 +2563,12 @@ class WOO_Kustom_Export {
 							</span>
 							<h2 class="font-headline-lg text-headline-lg text-on-surface m-0 tracking-tight font-bold"><?php esc_html_e( 'Kolumnöversikt: Tradera-kolumner', 'woo-kustom-export' ); ?></h2>
 						</div>
-						<p class="font-body-md text-body-md text-on-surface-variant mt-1 mb-0">
+						<p class="font-body-md text-body-md text-on-surface-variant mt-1 mb-0" id="selloColumnsOverviewSub">
 							<?php printf( esc_html__( 'Följande %d kolumner genereras i ordning i både .xlsx- och .csv-filen:', 'woo-kustom-export' ), count( $active_columns ) ); ?>
 						</p>
 					</div>
 					<div class="flex items-center gap-space-sm shrink-0">
-						<span class="font-code-sm text-code-sm text-on-surface-variant bg-surface-container-low px-2 py-1 rounded font-mono"><?php echo count( $active_columns ); ?> / <?php echo count( $all_cols_meta ); ?> <?php esc_html_e( 'kolumner aktiva', 'woo-kustom-export' ); ?></span>
+						<span class="font-code-sm text-code-sm text-on-surface-variant bg-surface-container-low px-2 py-1 rounded font-mono" id="selloActiveColsCounter"><?php echo count( $active_columns ); ?> / <?php echo count( $all_cols_meta ); ?> <?php esc_html_e( 'kolumner aktiva', 'woo-kustom-export' ); ?></span>
 					</div>
 				</div>
 
@@ -2301,6 +2578,7 @@ class WOO_Kustom_Export {
 						<thead>
 							<tr class="bg-surface-container-low text-on-surface-variant">
 								<th class="py-2.5 px-space-md font-label-sm text-label-sm uppercase tracking-wider rounded-l border-0"><?php esc_html_e( 'Kolumnnamn i fil', 'woo-kustom-export' ); ?></th>
+								<th class="py-2.5 px-space-md font-label-sm text-label-sm uppercase tracking-wider border-0"><?php esc_html_e( 'Status', 'woo-kustom-export' ); ?></th>
 								<th class="py-2.5 px-space-md font-label-sm text-label-sm uppercase tracking-wider border-0"><?php esc_html_e( 'Sello Fältkod', 'woo-kustom-export' ); ?></th>
 								<th class="py-2.5 px-space-md font-label-sm text-label-sm uppercase tracking-wider border-0"><?php esc_html_e( 'WooCommerce Källa', 'woo-kustom-export' ); ?></th>
 								<th class="py-2.5 px-space-md font-label-sm text-label-sm uppercase tracking-wider border-0"><?php esc_html_e( 'Beskrivning & Regel', 'woo-kustom-export' ); ?></th>
@@ -2308,102 +2586,37 @@ class WOO_Kustom_Export {
 							</tr>
 						</thead>
 						<tbody class="divide-y divide-slate-100 text-body-sm font-body-sm" id="selloColumnsTableBody">
-							<!-- 1: Sku -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-on-surface border-0 font-mono">Sku</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-surface-container-high px-2 py-0.5 rounded text-primary font-semibold">SKU</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0"><code>_sku</code></td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Unikt artikelnummer för varje enkel produkt och variation. Kritiskt för matchning.', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-on-surface-variant border-0 font-mono">LNT-8821-BLK-M</td>
+							<?php foreach ( $all_cols_meta as $c_name => $c_info ) :
+								$is_active = in_array( $c_name, $active_columns, true );
+								$sello_code = isset( $c_info['sello_code'] ) ? $c_info['sello_code'] : $c_name;
+								$source     = isset( $c_info['source'] ) ? $c_info['source'] : '';
+								$desc       = isset( $c_info['desc'] ) ? $c_info['desc'] : '';
+								$example    = isset( $c_info['example'] ) ? $c_info['example'] : '';
+							?>
+							<tr class="hover:bg-surface-container-low/60 transition-colors border-0 <?php echo $is_active ? '' : 'opacity-40 bg-slate-50/50'; ?>" data-col="<?php echo esc_attr( $c_name ); ?>">
+								<td class="py-space-md px-space-md font-semibold text-on-surface border-0 font-mono whitespace-nowrap">
+									<?php echo esc_html( $c_name ); ?>
+								</td>
+								<td class="py-space-md px-space-md border-0 whitespace-nowrap">
+									<span class="js-col-status-badge font-label-sm text-[11px] <?php echo $is_active ? 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-semibold' : 'bg-slate-100 text-slate-500 border border-slate-200 font-medium'; ?> px-2 py-0.5 rounded-full inline-flex items-center gap-1">
+										<span class="w-1.5 h-1.5 rounded-full <?php echo $is_active ? 'bg-emerald-600' : 'bg-slate-400'; ?>"></span>
+										<span class="js-col-status-text"><?php echo $is_active ? esc_html__( 'Vald', 'woo-kustom-export' ) : esc_html__( 'Ej vald', 'woo-kustom-export' ); ?></span>
+									</span>
+								</td>
+								<td class="py-space-md px-space-md border-0 whitespace-nowrap">
+									<span class="font-code-sm text-code-sm bg-surface-container-high px-2 py-0.5 rounded text-primary font-semibold font-mono"><?php echo esc_html( $sello_code ); ?></span>
+								</td>
+								<td class="py-space-md px-space-md text-on-surface-variant border-0 whitespace-nowrap font-mono text-xs">
+									<code><?php echo esc_html( $source ); ?></code>
+								</td>
+								<td class="py-space-md px-space-md text-on-surface border-0">
+									<?php echo esc_html( $desc ); ?>
+								</td>
+								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-on-surface-variant border-0 font-mono whitespace-nowrap">
+									<?php echo esc_html( $example ); ?>
+								</td>
 							</tr>
-							<!-- 2: Standard name sv -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-on-surface border-0 font-mono">Standard name sv</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-surface-container-high px-2 py-0.5 rounded text-primary font-semibold">Name</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0"><code>post_title</code></td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Produktnamn på svenska för butik och marknadsplatser.', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-on-surface-variant border-0">Skjorta Linne Sand</td>
-							</tr>
-							<!-- 3: Standard description sv -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-on-surface border-0 font-mono">Standard description sv</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-surface-container-high px-2 py-0.5 rounded text-primary font-semibold">Description</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0"><code>post_content</code> / <code>excerpt</code></td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Ren textbeskrivning utan HTML-taggar eller kortkoder. Behåller styckebrytningar.', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-on-surface-variant border-0 truncate max-w-xs">Klassisk linneskjorta med rak passform...</td>
-							</tr>
-							<!-- 4: Tradera price store -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-emerald-800 border-0 font-mono">Tradera price store</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-emerald-100 px-2 py-0.5 rounded text-emerald-800 font-semibold font-mono">Tradera Price</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0"><code>_regular_price</code> / aktivt pris</td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Fast pris för Tradera-butiksobjekt som heltal utan valuta. Ersätter Price och Calculate.', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-emerald-800 font-bold border-0 font-mono">495</td>
-							</tr>
-							<!-- 5: Purchase price -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-on-surface border-0 font-mono">Purchase price</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-surface-container-high px-2 py-0.5 rounded text-primary font-semibold">Cost price</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0"><code>_purchase_price</code> / <code>_cost</code></td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Inköpspris/kalkylpris om angivet i WooCommerce.', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-on-surface-variant border-0 font-mono">180</td>
-							</tr>
-							<!-- 6: Quantity -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-on-surface border-0 font-mono">Quantity</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-surface-container-high px-2 py-0.5 rounded text-primary font-semibold">Stock</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0"><code>_stock</code></td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Lagersaldo som heltal. Tomt om lagerhantering är inaktiv.', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-tertiary font-bold border-0 font-mono">42</td>
-							</tr>
-							<!-- 7: Tax -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-on-surface border-0 font-mono">Tax</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-surface-container-high px-2 py-0.5 rounded text-primary font-semibold">Vat rate</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0"><code>tax_class</code></td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Momssats som heltal (normalt 25 för Sverige, 12 för livsmedel).', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-on-surface-variant border-0 font-mono">25</td>
-							</tr>
-							<!-- 8: Weight -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-on-surface border-0 font-mono">Weight</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-surface-container-high px-2 py-0.5 rounded text-primary font-semibold">Weight (g)</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0"><code>_weight</code></td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Vikt automatiskt konverterad till heltal gram.', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-on-surface-variant border-0 font-mono">350</td>
-							</tr>
-							<!-- 9: Images -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-on-surface border-0 font-mono">Images</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-surface-container-high px-2 py-0.5 rounded text-primary font-semibold">Image URLs</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0">Bild- & galleri-ID:n</td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Fullständiga https:// bild-URL:er separerade med kommatecken.', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-secondary truncate max-w-xs border-0 font-mono">https://butik.se/img1.jpg,https://butik.se/img2.jpg</td>
-							</tr>
-							<!-- 10: Brand -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-on-surface border-0 font-mono">Brand</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-surface-container-high px-2 py-0.5 rounded text-primary font-semibold">Manufacturer</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0"><code>pa_brand</code> / attribut</td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Varumärke hämtat från taxonomi pa_brand, attribut eller metafält.', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-on-surface-variant border-0">Linthor Heritage</td>
-							</tr>
-							<!-- 11: Group sku -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-purple-800 border-0 font-mono">Group sku</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-purple-100 px-2 py-0.5 rounded text-purple-800 font-semibold font-mono">Parent SKU</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0">Förälderns <code>_sku</code></td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Huvudproduktens SKU. Binder ihop variationer till en gemensam produktgrupp i Sello.', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-purple-800 font-mono border-0">LNT-8821</td>
-							</tr>
-							<!-- 12: Group type -->
-							<tr class="hover:bg-surface-container-low/60 transition-colors border-0">
-								<td class="py-space-md px-space-md font-semibold text-blue-800 border-0 font-mono">Group type</td>
-								<td class="py-space-md px-space-md border-0"><span class="font-code-sm text-code-sm bg-blue-100 px-2 py-0.5 rounded text-blue-800 font-semibold font-mono">Dimension</span></td>
-								<td class="py-space-md px-space-md text-on-surface-variant border-0">Variationsattribut</td>
-								<td class="py-space-md px-space-md text-on-surface border-0"><?php esc_html_e( 'Typ av variation i Sello: color, size eller model.', 'woo-kustom-export' ); ?></td>
-								<td class="py-space-md px-space-md text-right font-code-sm text-code-sm text-blue-800 font-mono border-0">size</td>
-							</tr>
+							<?php endforeach; ?>
 						</tbody>
 					</table>
 				</div>
@@ -2412,7 +2625,7 @@ class WOO_Kustom_Export {
 				<div class="mt-space-lg pt-space-md flex flex-col sm:flex-row items-center justify-between gap-space-md text-on-surface-variant bg-surface-container-lowest border-t border-surface-container">
 					<div class="flex items-center gap-space-sm font-body-sm text-body-sm">
 						<span class="material-symbols-outlined text-[18px] text-tertiary">check_circle</span>
-						<span><?php esc_html_e( 'Exakt 12 kolumner strukturerade för Sello och Tradera fastprisbutik.', 'woo-kustom-export' ); ?></span>
+						<span id="selloColumnsOverviewSummary"><?php printf( esc_html__( '%d av %d kolumner är aktiva och inkluderas i Sello-exporten.', 'woo-kustom-export' ), count( $active_columns ), count( $all_cols_meta ) ); ?></span>
 					</div>
 					<div class="flex items-center gap-space-sm">
 						<button class="font-label-sm text-label-sm text-primary hover:text-primary-container font-semibold flex items-center gap-1 cursor-pointer bg-transparent border-0 p-0" onclick="window.scrollTo({top: 0, behavior: 'smooth'})" type="button">
@@ -2511,6 +2724,7 @@ class WOO_Kustom_Export {
 	public static function delete_archive_entry( $entry_id ) {
 		$entries     = self::get_archive_entries();
 		$archive_dir = realpath( self::get_archive_dir() );
+		$norm_dir    = $archive_dir ? trailingslashit( wp_normalize_path( $archive_dir ) ) : '';
 		$updated     = array();
 		$deleted     = false;
 
@@ -2518,7 +2732,8 @@ class WOO_Kustom_Export {
 			if ( isset( $entry['id'] ) && $entry['id'] === $entry_id ) {
 				if ( ! empty( $entry['filepath'] ) && file_exists( $entry['filepath'] ) ) {
 					$real_file = realpath( $entry['filepath'] );
-					if ( $real_file && $archive_dir && 0 === strpos( $real_file, $archive_dir ) ) {
+					$norm_file = $real_file ? wp_normalize_path( $real_file ) : '';
+					if ( $norm_file && $norm_dir && 0 === stripos( $norm_file, $norm_dir ) ) {
 						@unlink( $real_file );
 					}
 				}
@@ -2543,6 +2758,7 @@ class WOO_Kustom_Export {
 		$now         = time();
 		$cutoff_time = $now - $max_age;
 		$archive_dir = realpath( self::get_archive_dir() );
+		$norm_dir    = $archive_dir ? trailingslashit( wp_normalize_path( $archive_dir ) ) : '';
 		$entries     = get_option( self::ARCHIVE_OPTION_KEY, array() );
 		$kept        = array();
 
@@ -2554,7 +2770,8 @@ class WOO_Kustom_Export {
 				if ( $timestamp < $cutoff_time ) {
 					if ( ! empty( $filepath ) && file_exists( $filepath ) ) {
 						$real_file = realpath( $filepath );
-						if ( $real_file && $archive_dir && 0 === strpos( $real_file, $archive_dir ) ) {
+						$norm_file = $real_file ? wp_normalize_path( $real_file ) : '';
+						if ( $norm_file && $norm_dir && 0 === stripos( $norm_file, $norm_dir ) ) {
 							@unlink( $real_file );
 						}
 					}
@@ -2697,7 +2914,7 @@ class WOO_Kustom_Export {
 		$generator   = self::create_generator( $platform );
 		$archive_dir = self::get_archive_dir();
 
-		$filename = $generator->get_filename_prefix() . gmdate( 'Y-m-d-Hi' ) . '.' . $generator->get_filename_extension();
+		$filename = $generator->get_filename_prefix() . gmdate( 'Y-m-d-His' ) . '.' . $generator->get_filename_extension();
 		$filepath = trailingslashit( $archive_dir ) . $filename;
 
 		// Försök skriva filen till arkivmappen
@@ -2762,8 +2979,11 @@ class WOO_Kustom_Export {
 		$archive_dir = realpath( self::get_archive_dir() );
 		$filepath    = realpath( $found['filepath'] );
 
-		// Säkerhetskontroll: förhindra directory traversal
-		if ( ! $filepath || ! $archive_dir || 0 !== strpos( $filepath, $archive_dir ) || ! file_exists( $filepath ) ) {
+		$norm_dir  = $archive_dir ? trailingslashit( wp_normalize_path( $archive_dir ) ) : '';
+		$norm_file = $filepath ? wp_normalize_path( $filepath ) : '';
+
+		// Säkerhetskontroll: förhindra directory traversal (fungerar transparent på både Windows och Unix)
+		if ( ! $filepath || ! $archive_dir || ! $norm_dir || ! $norm_file || 0 !== stripos( $norm_file, $norm_dir ) || ! file_exists( $filepath ) ) {
 			wp_die( esc_html__( 'Filen är ogiltig eller finns inte längre.', 'woo-kustom-export' ) );
 		}
 
@@ -2889,17 +3109,19 @@ class WOO_Kustom_Export {
 		$sello_filter_conditions     = isset( $existing['sello_filter_conditions'] ) && is_array( $existing['sello_filter_conditions'] ) ? $existing['sello_filter_conditions'] : array();
 		$sello_filter_brand_mode     = isset( $existing['sello_filter_brand_mode'] ) ? $existing['sello_filter_brand_mode'] : 'all';
 		$sello_filter_brands         = isset( $existing['sello_filter_brands'] ) && is_array( $existing['sello_filter_brands'] ) ? $existing['sello_filter_brands'] : array();
+		$sello_category_mode         = isset( $existing['sello_category_mode'] ) ? $existing['sello_category_mode'] : 'woocommerce';
+		$sello_custom_category       = isset( $existing['sello_custom_category'] ) ? (string) $existing['sello_custom_category'] : 'importerad';
 
 		if ( 'sello' === $return_tab ) {
 			$sello_columns_configured = 1;
 			$all_sello_cols = WOO_Sello_CSV_Generator::get_all_columns_list();
 			$sello_columns  = array();
-			if ( isset( $raw['sello_columns'] ) && is_array( $raw['sello_columns'] ) ) {
-				foreach ( $raw['sello_columns'] as $col_key => $val ) {
-					if ( in_array( $col_key, $all_sello_cols, true ) && ! empty( $val ) ) {
-						$sello_columns[ $col_key ] = 1;
-					}
-				}
+			$raw_cols       = isset( $raw['sello_columns'] ) && is_array( $raw['sello_columns'] ) ? $raw['sello_columns'] : array();
+			foreach ( $all_sello_cols as $col_key ) {
+				$sello_columns[ $col_key ] = ! empty( $raw_cols[ $col_key ] ) ? 1 : 0;
+			}
+			if ( ! empty( $raw_cols['Category'] ) ) {
+				$sello_columns['Category'] = 1;
 			}
 
 			$allowed_conditions = array( 'Oanvänt', 'Mycket gott skick', 'Gott skick', 'Okej skick', 'Defekt' );
@@ -2946,6 +3168,15 @@ class WOO_Kustom_Export {
 			// Länkborttagning för Tradera (strip links & URLs)
 			$sello_strip_links   = isset( $raw['sello_strip_links'] ) ? ( empty( $raw['sello_strip_links'] ) ? 0 : 1 ) : 0;
 			$sello_strip_domains = isset( $raw['sello_strip_domains'] ) ? sanitize_text_field( $raw['sello_strip_domains'] ) : 'glasprinsen.se, glasprinsen';
+
+			// Kategoriläge för Sello (woocommerce, fixed)
+			$allowed_cat_modes = array( 'woocommerce', 'fixed' );
+			if ( isset( $raw['sello_category_mode'] ) && in_array( $raw['sello_category_mode'], $allowed_cat_modes, true ) ) {
+				$sello_category_mode = sanitize_text_field( $raw['sello_category_mode'] );
+			}
+			if ( isset( $raw['sello_custom_category'] ) ) {
+				$sello_custom_category = sanitize_text_field( $raw['sello_custom_category'] );
+			}
 		}
 
 		$settings = array(
@@ -2966,6 +3197,8 @@ class WOO_Kustom_Export {
 			'sello_filter_conditions'     => $sello_filter_conditions,
 			'sello_filter_brand_mode'     => $sello_filter_brand_mode,
 			'sello_filter_brands'         => $sello_filter_brands,
+			'sello_category_mode'         => $sello_category_mode,
+			'sello_custom_category'       => $sello_custom_category,
 		);
 
 		update_option( self::OPTION_KEY, $settings, false );

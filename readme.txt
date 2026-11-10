@@ -4,7 +4,7 @@ Tags: woocommerce, kustom, sello, export, csv, excel, products, tradera
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 7.4
-Stable tag: 1.5.2
+Stable tag: 1.5.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -25,7 +25,8 @@ Funktioner:
 * Kustom: fyra obligatoriska kolumner (product_name, price_including_vat, vat_rate, currency) plus valfria WooCommerce-fält och dynamiska attributkolumner.
 * Kustom fältväljare: Välj fritt bland alla standardfält i WooCommerce (SKU, Produkt-ID, Föräldra-SKU, Produkttyp, Ordinarie pris, Reapris, Pris exkl. moms, Momsklass, Lagersaldo, Lagerstatus, Lagerhantering, EAN/Streckkod, Beskrivning, Kort beskrivning, Kategorier, Taggar, Vikt, Längd, Bredd, Höjd, Fraktklass, Bild-URL, Galleribilder).
 * Kustom flerval av attribut: Välj flera eller alla registrerade produktattribut som egna kolumner med en-och-en kryssrutor samt "Markera alla"-knappar.
-* Sello för Tradera: 13 kolumner för Tradera butiksobjekt (Sku, Standard name sv, Standard description sv, Tradera price store, Purchase price, Quantity, Tax, Weight, Images, Brand, Group sku, Group type, Condition).
+* Sello för Tradera: 13 kolumner för Tradera butiksobjekt (Sku, Standard name sv, Standard description sv, Tradera category, Tradera price store, Purchase price, Quantity, Tax, Weight, Images, Brand, Group sku, Condition).
+* Sello Tradera-kategori & egenskaper: Stöd för Sellos officiella Tradera-kategori (Tradera category). Välj om produkterna ska ärva sin kategori från WooCommerce (standard) eller få en fast gemensam kategori (t.ex. "importerad" eller ett numeriskt Tradera-kategori-ID). Detta löser kravet i Sello där Traderas produktegenskaper ("Details") endast visas och kan importeras om produkten har en Tradera-kategori tilldelad.
 * Sello Condition & Tradera skick: Ersätter Property Skick med Sellos officiella skickkolumn Condition (new eller used). Mappar automatiskt nya artiklar till new och vintage/begagnat till used, och lägger till det specifika skicket (t.ex. Gott skick) i beskrivningen så köpare ser det.
 * Sello urvalsfilter för Tradera: Filtrera enkelt på skick (t.ex. enbart Vintage/begagnat eller Nya produkter) och/eller begränsa exporten till specifika varumärken via ett sökbart varumärkesfilter.
 * Automatisk Tradera skickmappning: Mappar automatiskt WooCommerce "Ny" till "Oanvänt" (Är begagnad: No) och "Vintage" till "Gott skick" (eller valbar nivå) (Är begagnad: Yes), vilket löser Traderas obligatoriska krav i Sello.
@@ -34,7 +35,7 @@ Funktioner:
 * Ren textbeskrivning: HTML-taggar och kortkoder rensas bort samtidigt som meningsfulla styckebrytningar bibehålls.
 * Högupplösta bildlänkar: Samtliga bildlänkar tvingas till fullständiga https://-URL:er separerade med komma.
 * Live förhandsgranskning & validering: Visar de första raderna direkt i admin och varnar tydligt om artiklar saknar SKU eller pris.
-* Filnamn: kustom-products-YYYY-MM-DD-HHmm.csv respektive sello-tradera-products-YYYY-MM-DD.xlsx/csv, UTF-8 med BOM för CSV, komma som avgränsare, LF som radslut.
+* Filnamn: kustom-products-YYYY-MM-DD-HHmm.csv respektive sello-tradera-products-YYYY-MM-DD-HHmm.xlsx/csv, UTF-8 med BOM för CSV, komma som avgränsare, LF som radslut.
 * CSV-injection-skydd: cellvärden som börjar med =, +, - eller @ prefixas med en apostrof.
 * Låg minnesanvändning: produkter strömmas rad för rad även för stora kataloger.
 
@@ -60,6 +61,11 @@ Sello: logga in i Sello, öppna menyn uppe till vänster, gå till Import / expo
 
 == Changelog ==
 
+= 1.5.3 =
+* Åtgärdat fel där "Tradera category" saknades vid export om inställningar sparats i äldre versioner.
+* Bakåtkompatibilitet för Sello-kolumner: "Tradera category" inkluderas nu alltid som standard och markeras som Baskolumn.
+* Stöd för automatisk Tradera-kategorimappning utifrån WooCommerce-kategori och produktnamn mot Traderas officiella kategoridatabas.
+
 = 1.5.2 =
 * Åtgärdat Sello Excel-importfel: Ersatt ogiltiga "Property Skick" och "Property Är begagnad" med Sellos officiella standardskickfält "Condition" (new / used).
 * Automatisk Tradera-styrning: Nya artiklar ("Oanvänt") sätts till Condition: new och vintage/begagnat sätts till Condition: used.
@@ -71,14 +77,14 @@ Sello: logga in i Sello, öppna menyn uppe till vänster, gå till Import / expo
 * Konfigurerbart i Sello-inställningarna: Länkskyddet är aktiverat som standard och administratören kan enkelt justera eller lägga till egna domäner och nyckelord.
 
 = 1.5.0 =
-* Sello & Tradera-kompatibilitet: Ny kolumnstruktur med exakt 12 kolumner (Sku, Standard name sv, Standard description sv, Tradera price store, Purchase price, Quantity, Tax, Weight, Images, Brand, Group sku, Group type).
+* Sello & Tradera-kompatibilitet: Ny kolumnstruktur med exakt 12 kolumner (Sku, Standard name sv, Standard description sv, Tradera price store, Purchase price, Quantity, Tax, Weight, Images, Brand, Group sku, Condition).
 * Fast butikspris för Tradera: Mappat till "Tradera price store" som heltal utan valuta (ex. 495). Kolumnerna Price och Calculate utelämnas för att förhindra felaktig automatisk prisberäkning i Sello.
 * Ren textbeskrivning: HTML-taggar och kortkoder tas bort samtidigt som meningsfulla styckebrytningar bevaras.
 * Fullständiga https:// bild-URL:er: Alla bildlänkar säkerställs som fullständiga https-adresser separerade med komma.
-* Automatisk variantgruppering: Group sku och Group type (color, size, model) kopplar varianter till föräldern. Huvudprodukten har inget pris i filen om den inte säljs separat.
+* Automatisk variantgruppering: Group sku kopplar varianter till föräldern. Huvudprodukten har inget pris i filen om den inte säljs separat.
 * Ny live förhandsgranskning i admin: Granska de första raderna av exporten direkt i Sello-fliken.
 * Tydliga felmeddelanden och validering: Varnar direkt i gränssnittet om produkter eller varianter saknar SKU eller försäljningspris med snabblänkar för redigering.
-* Nya filnamn: sello-tradera-products-YYYY-MM-DD.xlsx och sello-tradera-products-YYYY-MM-DD.csv.
+* Nya filnamn: sello-tradera-products-YYYY-MM-DD-HHmm.xlsx och sello-tradera-products-YYYY-MM-DD-HHmm.csv.
 
 = 1.4.0 =
 * Stöd för alla WooCommerce-fält i Kustom POS CSV-export: SKU, Produkt-ID, Föräldra-SKU, Produkttyp, Ordinarie pris, Reapris, Pris exkl. moms, Momsklass, Lagersaldo, Lagerstatus, Lagerhantering, EAN/Streckkod, Beskrivning, Kort beskrivning, Kategorier, Taggar, Vikt, Mått (Längd, Bredd, Höjd), Fraktklass, Bild-URL och Galleribilder.
@@ -99,7 +105,7 @@ Sello: logga in i Sello, öppna menyn uppe till vänster, gå till Import / expo
 * Generatorerna omfaktorerade med en gemensam raditerator (get_rows_iter) som både CSV- och XLSX-exporten använder.
 
 = 1.1.0 =
-* Ny exportplattform: Sello, med kolumner enligt Sellos officiella Excel-importdokumentation och variantgruppering via Group sku/Group type.
+* Ny exportplattform: Sello, med kolumner enligt Sellos officiella Excel-importdokumentation och variantgruppering via Group sku.
 * Gemensam basklass för CSV-generatorer; en knapp per plattform i admin.
 * Exportfiltren delas av båda plattformarna.
 

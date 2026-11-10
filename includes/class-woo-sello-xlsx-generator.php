@@ -34,7 +34,7 @@ class WOO_Sello_XLSX_Generator extends WOO_Sello_CSV_Generator {
 			wp_die( esc_html__( 'PHP-tillägget ZipArchive krävs för att generera Excel (.xlsx)-filer, men är inte aktiverat på webbservern.', 'woo-kustom-export' ) );
 		}
 
-		$filename = $this->get_filename_prefix() . gmdate( 'Y-m-d-Hi' ) . '.' . $this->get_filename_extension();
+		$filename = $this->get_filename_prefix() . gmdate( 'Y-m-d-His' ) . '.' . $this->get_filename_extension();
 
 		nocache_headers();
 		header( 'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' );
@@ -49,14 +49,14 @@ class WOO_Sello_XLSX_Generator extends WOO_Sello_CSV_Generator {
 		$writer->setAuthor( get_bloginfo( 'name' ) );
 
 		$columns = $this->collect_columns();
-		$types   = array_fill( 0, count( $columns ), 'string' );
+		$types   = $this->get_column_types( $columns );
 
-		$writer->writeSheetHeader( 'Products', array_combine( $columns, $types ), array( 'freeze_rows' => true ) );
+		$writer->writeSheetHeader( 'Products', $types, array( 'freeze_rows' => true ) );
 
 		foreach ( $this->get_rows_iter() as $row ) {
 			$writer->writeSheetRow(
 				'Products',
-				array_values( $row )
+				$this->prepare_sheet_row_values( $row, $columns )
 			);
 		}
 
@@ -80,15 +80,15 @@ class WOO_Sello_XLSX_Generator extends WOO_Sello_CSV_Generator {
 		$writer->setAuthor( get_bloginfo( 'name' ) );
 
 		$columns = $this->collect_columns();
-		$types   = array_fill( 0, count( $columns ), 'string' );
+		$types   = $this->get_column_types( $columns );
 
-		$writer->writeSheetHeader( 'Products', array_combine( $columns, $types ), array( 'freeze_rows' => true ) );
+		$writer->writeSheetHeader( 'Products', $types, array( 'freeze_rows' => true ) );
 
 		$rows_count = 0;
 		foreach ( $this->get_rows_iter() as $row ) {
 			$writer->writeSheetRow(
 				'Products',
-				array_values( $row )
+				$this->prepare_sheet_row_values( $row, $columns )
 			);
 			$rows_count++;
 		}
@@ -99,6 +99,83 @@ class WOO_Sello_XLSX_Generator extends WOO_Sello_CSV_Generator {
 			'rows' => $rows_count,
 			'size' => file_exists( $filepath ) ? filesize( $filepath ) : 0,
 		);
+	}
+
+	/**
+	 * Mappa kolumner till motsvarande datatyper i XLSXWriter.
+	 *
+	 * Numeriska kolumner (Tradera price store, Purchase price, Quantity, Tax, Weight)
+	 * deklareras som integer eller price så att de skrivs som äkta tal (t="n") i Excel.
+	 *
+	 * @param string[] $columns Aktiva kolumnnamn.
+	 * @return array<string,string> Associativ array [kolumn => typ].
+	 */
+	protected function get_column_types( $columns ) {
+		$types = array();
+		foreach ( $columns as $col ) {
+			switch ( $col ) {
+				case 'Tradera price store':
+				case 'Quantity':
+				case 'Tax':
+				case 'Weight':
+					$types[ $col ] = 'integer';
+					break;
+				case 'Purchase price':
+					$types[ $col ] = 'price';
+					break;
+				default:
+					$types[ $col ] = 'string';
+					break;
+			}
+		}
+		return $types;
+	}
+
+	/**
+	 * Formatera radens cellvärden enligt Sellos typkrav innan de skrivs till Excel.
+	 *
+	 * @param array    $row     Rad med kolumnnamn som nycklar.
+	 * @param string[] $columns Kolumnordning.
+	 * @return array Numeriskt indexerad array med typkonverterade värden.
+	 */
+	protected function prepare_sheet_row_values( $row, $columns ) {
+		$row_values = array();
+		foreach ( $columns as $col ) {
+			$val = isset( $row[ $col ] ) ? $row[ $col ] : '';
+
+			// Guard mot strängen "undefined" eller "null"
+			if ( is_string( $val ) && in_array( strtolower( trim( $val ) ), array( 'undefined', 'null' ), true ) ) {
+				$val = '';
+			}
+
+			if ( in_array( $col, array( 'Tradera price store', 'Quantity', 'Tax', 'Weight' ), true ) ) {
+				if ( '' !== $val && null !== $val && is_numeric( $val ) ) {
+					$row_values[] = (int) round( (float) $val );
+				} else {
+					$row_values[] = '';
+				}
+			} elseif ( 'Purchase price' === $col ) {
+				if ( '' !== $val && null !== $val && is_numeric( $val ) ) {
+					$row_values[] = (float) $val;
+				} else {
+					$row_values[] = '';
+				}
+			} elseif ( 'Condition' === $col ) {
+				// Sello kräver exakt "new" eller "used" i gemener
+				$cond = strtolower( trim( (string) $val ) );
+				$row_values[] = ( 'new' === $cond ) ? 'new' : 'used';
+			} elseif ( 'Tradera category' === $col ) {
+				// Tradera kategori-ID som heltal om numeriskt, annars sträng
+				if ( '' !== $val && null !== $val && is_numeric( $val ) ) {
+					$row_values[] = (int) round( (float) $val );
+				} else {
+					$row_values[] = (string) $val;
+				}
+			} else {
+				$row_values[] = (string) $val;
+			}
+		}
+		return $row_values;
 	}
 
 	/**

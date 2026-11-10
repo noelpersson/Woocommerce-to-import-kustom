@@ -253,6 +253,9 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 
 			foreach ( $products as $product ) {
 				yield $product;
+				if ( function_exists( 'clean_post_cache' ) && method_exists( $product, 'get_id' ) ) {
+					clean_post_cache( $product->get_id() );
+				}
 			}
 
 			$page++;
@@ -281,17 +284,23 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 	 * @return string
 	 */
 	protected function attribute_label( $taxonomy, $product ) {
-		$label = $taxonomy;
+		$clean_tax = preg_replace( '/^attribute_/', '', (string) $taxonomy );
+		$label     = $clean_tax;
 
-		if ( 0 === strpos( $taxonomy, 'pa_' ) && taxonomy_exists( $taxonomy ) ) {
-			$label = wc_attribute_label( $taxonomy, $product );
+		if ( 0 === strpos( $clean_tax, 'pa_' ) && taxonomy_exists( $clean_tax ) ) {
+			$label = wc_attribute_label( $clean_tax, $product );
 		} else {
 			$product_attributes = $product->get_attributes();
-			if ( isset( $product_attributes[ $taxonomy ] ) ) {
+			if ( isset( $product_attributes[ $clean_tax ] ) ) {
+				$label = $product_attributes[ $clean_tax ]->get_name();
+			} elseif ( isset( $product_attributes[ $taxonomy ] ) ) {
 				$label = $product_attributes[ $taxonomy ]->get_name();
 			}
 		}
 
+		if ( function_exists( 'mb_strtolower' ) ) {
+			return mb_strtolower( trim( wp_specialchars_decode( $label, ENT_QUOTES ) ), 'UTF-8' );
+		}
 		return strtolower( trim( wp_specialchars_decode( $label, ENT_QUOTES ) ) );
 	}
 
@@ -303,8 +312,9 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 	 * @return string
 	 */
 	protected function attribute_value( $taxonomy, $value ) {
-		if ( taxonomy_exists( $taxonomy ) && $value ) {
-			$term = get_term_by( 'slug', $value, $taxonomy );
+		$clean_tax = preg_replace( '/^attribute_/', '', (string) $taxonomy );
+		if ( taxonomy_exists( $clean_tax ) && $value ) {
+			$term = get_term_by( 'slug', $value, $clean_tax );
 			if ( $term && ! is_wp_error( $term ) ) {
 				return $term->name;
 			}
@@ -692,8 +702,15 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 			return $value;
 		}
 
-		if ( '' !== $value && in_array( $value[0], array( '=', '+', '-', '@' ), true ) ) {
-			return "'" . $value;
+		if ( '' !== $value ) {
+			$first = $value[0];
+			if ( '=' === $first || '@' === $first ) {
+				return "'" . $value;
+			}
+			// Skydda mot CSV-formelinjektion via + eller - enbart om de följs av formelkommando/bokstav/likhetstecken
+			if ( ( '+' === $first || '-' === $first ) && preg_match( '/^[+\-]\s*[a-zA-Z_@=]/', $value ) ) {
+				return "'" . $value;
+			}
 		}
 		return $value;
 	}
