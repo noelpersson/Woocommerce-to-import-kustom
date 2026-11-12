@@ -662,6 +662,9 @@ class WOO_Sello_CSV_Generator {
 		foreach ( $product->get_children() as $variation_id ) {
 			$variation = wc_get_product( $variation_id );
 			if ( ! $variation || ! $variation->exists() || ! $this->include_product( $variation, $product ) ) {
+				if ( function_exists( 'clean_post_cache' ) ) {
+					clean_post_cache( $variation_id );
+				}
 				continue;
 			}
 
@@ -678,6 +681,10 @@ class WOO_Sello_CSV_Generator {
 			}
 
 			yield $row;
+
+			if ( function_exists( 'clean_post_cache' ) ) {
+				clean_post_cache( $variation_id );
+			}
 		}
 	}
 

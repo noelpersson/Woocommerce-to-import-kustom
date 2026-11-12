@@ -205,6 +205,9 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 		foreach ( $product->get_children() as $variation_id ) {
 			$variation = wc_get_product( $variation_id );
 			if ( ! $variation || ! $variation->exists() || ! $this->include_product( $variation ) ) {
+				if ( function_exists( 'clean_post_cache' ) ) {
+					clean_post_cache( $variation_id );
+				}
 				continue;
 			}
 
@@ -219,6 +222,10 @@ abstract class WOO_Kustom_CSV_Generator_Base {
 			}
 
 			yield $row;
+
+			if ( function_exists( 'clean_post_cache' ) ) {
+				clean_post_cache( $variation_id );
+			}
 		}
 	}
 

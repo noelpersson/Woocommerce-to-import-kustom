@@ -286,6 +286,12 @@ class WOO_Kustom_CSV_Generator extends WOO_Kustom_CSV_Generator_Base {
 		$excluded = array( 'skick', 'pa_skick', 'condition', 'pa_condition', 'tillstånd', 'tillstand', 'pa_tillstand' );
 		$selected = array_values( array_diff( $selected, $excluded ) );
 
+		// Prestandaoptimering: Om inga egna attribut har valts, hoppa över den tunga
+		// genomgången av alla katalogens produkter i get_available_attributes().
+		if ( empty( $selected ) ) {
+			return array();
+		}
+
 		$available = $this->get_available_attributes();
 		return array_values( array_intersect( $selected, $available ) );
 	}

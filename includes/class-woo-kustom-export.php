@@ -464,6 +464,21 @@ class WOO_Kustom_Export {
 				</div>
 			</div>
 
+			<!-- Information Banner för stora kataloger -->
+			<div class="bg-blue-50/70 border border-blue-200/80 rounded-xl p-space-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-space-md mb-space-xs shadow-xs">
+				<div class="flex items-start gap-space-sm text-slate-700 font-body-sm text-body-sm">
+					<span class="material-symbols-outlined text-blue-600 text-[22px] mt-0.5 shrink-0">info</span>
+					<div>
+						<strong class="text-slate-900 block"><?php esc_html_e( 'Batch-optimerad export för stora kataloger (3 000+ produkter)', 'woo-kustom-export' ); ?></strong>
+						<span class="text-slate-600"><?php esc_html_e( 'Filer genereras och strömmas i realtid (100 produkter/batch). För stora kataloger tar det normalt 30–90 sekunder. Alla exporter sparas dessutom automatiskt i Exportarkivet nedan.', 'woo-kustom-export' ); ?></span>
+					</div>
+				</div>
+				<a href="<?php echo esc_url( admin_url( 'admin.php?page=woo-product-export#export-archive-section' ) ); ?>" class="inline-flex items-center gap-1 text-blue-700 hover:text-blue-900 font-medium text-xs whitespace-nowrap no-underline bg-white px-2.5 py-1.5 rounded-lg border border-blue-100 shadow-2xs">
+					<span><?php esc_html_e( 'Visa Exportarkiv', 'woo-kustom-export' ); ?></span>
+					<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+				</a>
+			</div>
+
 			<!-- Platform Selection Cards (2-Column Grid) -->
 			<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter-lg">
 				<!-- Platform Card 1: Kustom POS -->
@@ -1377,11 +1392,15 @@ class WOO_Kustom_Export {
 							<?php esc_html_e( 'Konfigurera produktkolumner och exportera sortimentet anpassat för Kustom POS kassaregister med optimerade fältdefinitioner och automatisk variantmappning.', 'woo-kustom-export' ); ?>
 						</p>
 					</div>
-					<div class="flex items-center gap-space-md shrink-0">
+					<div class="flex flex-col sm:items-end gap-1 shrink-0">
 						<button class="relative group inline-flex items-center justify-center gap-space-sm font-label-md text-label-md text-on-primary bg-primary-container hover:bg-primary px-space-xl py-3 rounded-lg shadow-md transition-all active:scale-[0.99] cursor-pointer border-0" id="kustomDownloadCsvBtn" type="button" data-download-url="<?php echo esc_url( $download_url ); ?>">
 							<span class="material-symbols-outlined text-[20px] transition-transform group-hover:translate-y-0.5">download</span>
 							<span class="font-semibold tracking-wide"><?php esc_html_e( 'Ladda ner Kustom POS CSV', 'woo-kustom-export' ); ?></span>
 						</button>
+						<span class="font-label-sm text-label-sm text-slate-500 flex items-center gap-1">
+							<span class="material-symbols-outlined text-[14px] text-blue-500">info</span>
+							<?php esc_html_e( 'Batchvis strömning • Sparas i arkivet', 'woo-kustom-export' ); ?>
+						</span>
 					</div>
 				</div>
 				<div class="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-space-md pt-space-md border-t border-surface-container">
@@ -1748,6 +1767,12 @@ class WOO_Kustom_Export {
 							<span class="font-label-sm text-label-sm flex items-center gap-1">
 								<span class="material-symbols-outlined text-[14px] text-tertiary">verified</span>
 								<?php esc_html_e( '14 Tradera-kolumner utan Price/Calculate', 'woo-kustom-export' ); ?>
+							</span>
+						</div>
+						<div class="flex items-center text-slate-500 px-space-xs">
+							<span class="font-label-sm text-label-sm flex items-center gap-1">
+								<span class="material-symbols-outlined text-[14px] text-blue-500">info</span>
+								<?php esc_html_e( 'Batchvis strömning (30–90 sek för 3 000+ produkter)', 'woo-kustom-export' ); ?>
 							</span>
 						</div>
 					</div>
@@ -2908,6 +2933,15 @@ class WOO_Kustom_Export {
 			wc_set_time_limit( 0 );
 		} elseif ( function_exists( 'set_time_limit' ) ) {
 			@set_time_limit( 0 );
+		}
+
+		// Prestanda- och minnesoptimering för stora kataloger (3 000+ produkter)
+		if ( function_exists( 'wp_suspend_cache_addition' ) ) {
+			wp_suspend_cache_addition( true );
+		}
+		global $wpdb;
+		if ( isset( $wpdb ) && is_object( $wpdb ) ) {
+			$wpdb->save_queries = false;
 		}
 
 		$platform    = self::sanitize_platform( isset( $_GET['platform'] ) ? wp_unslash( $_GET['platform'] ) : 'kustom' );

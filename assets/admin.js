@@ -58,26 +58,110 @@
 		});
 	};
 
+	// Persistent export-notis med aktiv laddningsindikator, timer och tidsuppskattning
+	var activeExportBanner = null;
+	var exportTimerInterval = null;
+
+	window.showExportNotification = function (formatName, rowCount) {
+		if (activeExportBanner && activeExportBanner.parentNode) {
+			activeExportBanner.parentNode.removeChild(activeExportBanner);
+		}
+		if (exportTimerInterval) {
+			clearInterval(exportTimerInterval);
+		}
+
+		var countText = rowCount ? ' (' + rowCount + ')' : '';
+		var banner = document.createElement('div');
+		banner.className = 'woo-export-loading-banner fixed bottom-6 right-6 bg-slate-900 text-white rounded-xl shadow-2xl p-4 flex flex-col gap-2 z-50 transition-all font-body-sm text-body-sm border border-slate-700';
+		banner.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#0f172a;color:#ffffff;padding:16px 20px;border-radius:12px;box-shadow:0 15px 35px rgba(0,0,0,0.35);display:flex;flex-direction:column;gap:10px;z-index:999999;font-size:13px;font-family:Inter,sans-serif;max-width:440px;border:1px solid #334155;';
+
+		var seconds = 0;
+
+		banner.innerHTML =
+			'<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;">' +
+				'<div style="display:flex;align-items:center;gap:10px;">' +
+					'<span class="material-symbols-outlined text-blue-400 animate-spin" style="animation:woo-spin 1.2s linear infinite;font-size:22px;color:#60a5fa;">sync</span>' +
+					'<strong style="font-size:14px;color:#f8fafc;font-weight:600;">Genererar export' + countText + '...</strong>' +
+				'</div>' +
+				'<button type="button" class="woo-export-close-btn" style="background:none;border:none;color:#94a3b8;cursor:pointer;font-size:20px;line-height:1;padding:0;margin:0;" title="Stäng">&times;</button>' +
+			'</div>' +
+			'<p style="margin:0;color:#cbd5e1;line-height:1.45;font-size:12.5px;">' +
+				'Katalogen läses in batchvis (100 i taget). För stora kataloger (3 000+ produkter) tar detta normalt <strong>30–90 sekunder</strong>. Lämna inte sidan.' +
+			'</p>' +
+			'<div style="display:flex;align-items:center;justify-content:space-between;border-top:1px solid #1e293b;padding-top:8px;margin-top:2px;font-size:11.5px;color:#94a3b8;">' +
+				'<span class="woo-export-timer-txt">Tid: 0s • Sparas i Exportarkivet</span>' +
+				'<span style="color:#38bdf8;font-weight:500;">' + (formatName || 'Export') + '</span>' +
+			'</div>';
+
+		// Injicera animations-keyframe om den saknas
+		if (!document.getElementById('woo-spin-style')) {
+			var style = document.createElement('style');
+			style.id = 'woo-spin-style';
+			style.textContent = '@keyframes woo-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }';
+			document.head.appendChild(style);
+		}
+
+		var container = document.getElementById('woo-kustom-export-root') || document.body;
+		container.appendChild(banner);
+		activeExportBanner = banner;
+
+		var closeBtn = banner.querySelector('.woo-export-close-btn');
+		if (closeBtn) {
+			closeBtn.addEventListener('click', function () {
+				if (banner.parentNode) {
+					banner.parentNode.removeChild(banner);
+				}
+				if (exportTimerInterval) {
+					clearInterval(exportTimerInterval);
+				}
+			});
+		}
+
+		var timerEl = banner.querySelector('.woo-export-timer-txt');
+		exportTimerInterval = setInterval(function () {
+			seconds += 1;
+			if (timerEl) {
+				if (seconds >= 30) {
+					timerEl.innerHTML = 'Tid: ' + seconds + 's • Bearbetar batcher...';
+				} else {
+					timerEl.innerHTML = 'Tid: ' + seconds + 's • Sparas i Exportarkivet';
+				}
+			}
+			if (seconds >= 120) {
+				clearInterval(exportTimerInterval);
+				if (banner.parentNode) {
+					banner.style.opacity = '0';
+					setTimeout(function () {
+						if (banner.parentNode) banner.parentNode.removeChild(banner);
+					}, 300);
+				}
+			}
+		}, 1000);
+	};
+
 	// Visar toast-notis vid snabbexport eller sparande
 	window.triggerQuickDownload = function (target) {
-		var name = target === 'kustom' ? 'Kustom POS CSV' : (target === 'save_ok' ? 'Kustom-inställningar sparade' : 'Sello Excel (.xlsx)');
-		var toast = document.createElement('div');
-		toast.className = 'woo-toast-notify fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50 transition-all font-body-sm text-body-sm';
-		toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#131b2e;color:#ffffff;padding:12px 18px;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.18);display:flex;align-items:center;gap:10px;z-index:999999;font-size:13px;font-family:Inter,sans-serif;transition:opacity 0.3s ease;';
-		var icon = target === 'save_ok' ? 'check_circle' : 'file_download';
-		var msg = target === 'save_ok' ? 'Kustom POS-inställningarna har sparats!' : ('Genererar och laddar ner ' + name + '...');
-		toast.innerHTML = '<span class="material-symbols-outlined text-[18px]" style="color:#95f8a7;font-size:18px;">' + icon + '</span> ' + msg;
-		var container = document.getElementById('woo-kustom-export-root') || document.body;
-		container.appendChild(toast);
+		if (target === 'save_ok') {
+			var toast = document.createElement('div');
+			toast.className = 'woo-toast-notify fixed bottom-6 right-6 bg-slate-900 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 z-50 transition-all font-body-sm text-body-sm';
+			toast.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#131b2e;color:#ffffff;padding:12px 18px;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.18);display:flex;align-items:center;gap:10px;z-index:999999;font-size:13px;font-family:Inter,sans-serif;transition:opacity 0.3s ease;';
+			toast.innerHTML = '<span class="material-symbols-outlined text-[18px]" style="color:#95f8a7;font-size:18px;">check_circle</span> Kustom POS-inställningarna har sparats!';
+			var container = document.getElementById('woo-kustom-export-root') || document.body;
+			container.appendChild(toast);
 
-		setTimeout(function () {
-			toast.style.opacity = '0';
 			setTimeout(function () {
-				if (toast.parentNode) {
-					toast.parentNode.removeChild(toast);
-				}
-			}, 300);
-		}, 2500);
+				toast.style.opacity = '0';
+				setTimeout(function () {
+					if (toast.parentNode) {
+						toast.parentNode.removeChild(toast);
+					}
+				}, 300);
+			}, 2500);
+			return;
+		}
+
+		var name = target === 'kustom' ? 'Kustom POS CSV' : 'Sello Excel (.xlsx)';
+		window.showExportNotification(name);
 	};
 
 	document.addEventListener('DOMContentLoaded', function () {
@@ -422,10 +506,16 @@
 		if (downloadBtn) {
 			downloadBtn.addEventListener('click', function () {
 				var url = downloadBtn.getAttribute('data-download-url');
+				var countEl = document.getElementById('countTotal') || document.getElementById('kpi-total');
+				var count = countEl ? countEl.textContent.trim() : '';
+				window.showExportNotification('Kustom POS CSV', count);
+
 				var originalText = downloadBtn.innerHTML;
-				downloadBtn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin">sync</span><span class="font-semibold">Genererar CSV...</span>';
+				downloadBtn.innerHTML = '<span class="material-symbols-outlined text-[20px] animate-spin" style="animation:woo-spin 1.2s linear infinite;">sync</span><span class="font-semibold">Genererar CSV...</span>';
+				downloadBtn.disabled = true;
 
 				setTimeout(function () {
+					downloadBtn.disabled = false;
 					downloadBtn.innerHTML = originalText;
 					if (url) {
 						window.location.href = url;
@@ -443,39 +533,19 @@
 	 * Ladda ner-knappar med toasts och filnamnsfeedback för Tradera-export.
 	 */
 	function initSelloExportTab() {
-		var toast = document.getElementById('toastNotification');
-		var toastMsg = document.getElementById('toastMessage');
-
-		function showToast(text) {
-			if (toast && toastMsg) {
-				toastMsg.textContent = text;
-				toast.classList.remove('translate-y-20', 'opacity-0', 'pointer-events-none');
-				toast.classList.add('translate-y-0', 'opacity-100');
-
-				setTimeout(function () {
-					toast.classList.remove('translate-y-0', 'opacity-100');
-					toast.classList.add('translate-y-20', 'opacity-0', 'pointer-events-none');
-				}, 3500);
-			} else if (typeof window.triggerQuickDownload === 'function') {
-				window.triggerQuickDownload('save_ok');
-			}
-		}
-
 		var xlsxBtn = document.getElementById('selloDownloadXlsxBtn') || document.getElementById('downloadXlsxBtn');
 		if (xlsxBtn) {
 			xlsxBtn.addEventListener('click', function () {
 				var count = xlsxBtn.getAttribute('data-count') || '';
-				var fn = xlsxBtn.getAttribute('data-filename') || 'sello-tradera-products.xlsx';
-				var countText = count ? ' (' + count + ' rader)' : '';
-				showToast('Genererar och laddar ner ' + fn + countText + '...');
+				window.showExportNotification('Sello Tradera Excel (.xlsx)', count);
 			});
 		}
 
 		var csvBtn = document.getElementById('selloDownloadCsvBtn') || document.getElementById('downloadCsvBtn');
 		if (csvBtn) {
 			csvBtn.addEventListener('click', function () {
-				var fn = csvBtn.getAttribute('data-filename') || 'sello-tradera-products.csv';
-				showToast('Genererar och laddar ner ' + fn + ' (UTF-8)...');
+				var count = (xlsxBtn && xlsxBtn.getAttribute('data-count')) || '';
+				window.showExportNotification('Sello Tradera CSV', count);
 			});
 		}
 
